@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Table, Button, Space, Modal, Form, Input, message, Card } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons'
+import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, BuildOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { dashboardService } from '../services'
 import { useAuthStore } from '../store/auth'
@@ -64,9 +64,13 @@ const DashboardList: React.FC = () => {
       key: 'actions',
       render: (_: any, record: any) => (
         <Space>
-          <Button icon={<EyeOutlined />} onClick={() => navigate(`/dashboards/${record.id}`)} />
-          <Button icon={<EditOutlined />} onClick={() => navigate(`/dashboards/${record.id}`)} />
-          <Button icon={<DeleteOutlined />} danger onClick={() => handleDelete(record.id)} />
+          <Button icon={<BuildOutlined />} type="primary" size="small" onClick={() => navigate(`/dashboards/${record.id}`)}>
+            Edit
+          </Button>
+          <Button icon={<EyeOutlined />} size="small" onClick={() => navigate(`/dashboards/${record.id}/view`)}>
+            View
+          </Button>
+          <Button icon={<DeleteOutlined />} danger size="small" onClick={() => handleDelete(record.id)} />
         </Space>
       ),
     },

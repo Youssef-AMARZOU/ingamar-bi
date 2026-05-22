@@ -5,6 +5,7 @@ import Header from './components/Header'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import DashboardList from './pages/DashboardList'
+import DashboardBuilder from './pages/DashboardBuilder'
 import ChartBuilder from './pages/ChartBuilder'
 import ChartList from './pages/ChartList'
 import SQLLab from './pages/SQLLab'
@@ -56,7 +57,8 @@ function App() {
             <Routes>
               <Route path="/" element={<Navigate to="/dashboards" replace />} />
               <Route path="/dashboards" element={<DashboardList />} />
-              <Route path="/dashboards/:id" element={<Dashboard />} />
+              <Route path="/dashboards/:id" element={<DashboardBuilder />} />
+              <Route path="/dashboards/:id/view" element={<Dashboard />} />
               <Route path="/charts" element={<ChartList />} />
               <Route path="/charts/new" element={<ChartBuilder />} />
               <Route path="/charts/:id" element={<ChartBuilder />} />

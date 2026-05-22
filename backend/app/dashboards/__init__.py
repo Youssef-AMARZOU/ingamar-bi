@@ -157,6 +157,10 @@ def add_chart_to_dashboard(dashboard_id):
         return jsonify({'error': 'Chart not found'}), 404
     
     from app.models import DashboardPosition
+    existing = DashboardPosition.query.filter_by(dashboard_id=dashboard_id, chart_id=chart_id).first()
+    if existing:
+        return jsonify({'error': 'Chart already in dashboard'}), 409
+    
     dashboard_position = DashboardPosition(
         dashboard_id=dashboard_id,
         chart_id=chart_id,
@@ -168,3 +172,56 @@ def add_chart_to_dashboard(dashboard_id):
     db.session.commit()
     
     return jsonify({'message': 'Chart added to dashboard'}), 201
+
+
+@dashboards_bp.route('/<int:dashboard_id>/charts/<int:chart_id>', methods=['DELETE'])
+@jwt_required()
+def remove_chart_from_dashboard(dashboard_id, chart_id):
+    """Remove a chart from a dashboard."""
+    current_user_id = get_current_user_id()
+    dashboard = Dashboard.query.get(dashboard_id)
+    
+    if not dashboard:
+        return jsonify({'error': 'Dashboard not found'}), 404
+    
+    if dashboard.owner_id != current_user_id:
+        return jsonify({'error': 'Not authorized'}), 403
+    
+    from app.models import DashboardPosition
+    pos = DashboardPosition.query.filter_by(dashboard_id=dashboard_id, chart_id=chart_id).first()
+    if not pos:
+        return jsonify({'error': 'Chart not in dashboard'}), 404
+    
+    db.session.delete(pos)
+    db.session.commit()
+    
+    return jsonify({'message': 'Chart removed from dashboard'}), 200
+
+
+@dashboards_bp.route('/<int:dashboard_id>/layout', methods=['PUT'])
+@jwt_required()
+def update_dashboard_layout(dashboard_id):
+    """Update dashboard layout positions."""
+    current_user_id = get_current_user_id()
+    dashboard = Dashboard.query.get(dashboard_id)
+    
+    if not dashboard:
+        return jsonify({'error': 'Dashboard not found'}), 404
+    
+    if dashboard.owner_id != current_user_id:
+        return jsonify({'error': 'Not authorized'}), 403
+    
+    data = request.get_json()
+    layout = data.get('layout', [])
+    
+    from app.models import DashboardPosition
+    for item in layout:
+        chart_id = item.get('i')
+        pos = item.get('pos', {})
+        if chart_id:
+            dp = DashboardPosition.query.filter_by(dashboard_id=dashboard_id, chart_id=int(chart_id)).first()
+            if dp:
+                dp.position_json = pos
+    
+    db.session.commit()
+    return jsonify({'message': 'Layout updated'}), 200
