@@ -196,12 +196,11 @@ def get_chart_data(chart_id):
         return jsonify({'error': 'Chart not found'}), 404
 
     try:
-        from sqlalchemy import create_engine, inspect, text
+        from sqlalchemy import inspect, text
         import pandas as pd
-        import os
 
-        database_url = os.environ.get('INGAMAR_DB_URI', 'postgresql+psycopg2://ingamar:ingamar@db:5432/ingamar')
-        engine = create_engine(database_url)
+        from app import db as _db
+        engine = _db.engine
 
         datasource_id = chart.datasource_id
 

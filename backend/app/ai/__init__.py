@@ -16,9 +16,8 @@ DEFAULT_MODEL = 'openai/gpt-4o-mini'
 LOCAL_MODEL_TIMEOUT = 300
 
 def get_db_engine():
-    from sqlalchemy import create_engine
-    database_url = os.environ.get('INGAMAR_DB_URI', 'postgresql+psycopg2://ingamar:ingamar@db:5432/ingamar')
-    return create_engine(database_url)
+    from app import db as _db
+    return _db.engine
 
 def get_user_ai_config(user_id):
     configs = UserConfig.query.filter(
