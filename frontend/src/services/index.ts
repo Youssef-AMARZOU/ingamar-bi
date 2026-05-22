@@ -97,8 +97,33 @@ export const sqlLabService = {
     return response.data
   },
   
+  getDatabase: async (id: number) => {
+    const response = await api.get(`/sql_lab/databases/${id}`)
+    return response.data
+  },
+  
   createDatabase: async (data: any) => {
     const response = await api.post('/sql_lab/databases', data)
+    return response.data
+  },
+  
+  updateDatabase: async (id: number, data: any) => {
+    const response = await api.put(`/sql_lab/databases/${id}`, data)
+    return response.data
+  },
+  
+  deleteDatabase: async (id: number) => {
+    const response = await api.delete(`/sql_lab/databases/${id}`)
+    return response.data
+  },
+  
+  testConnection: async (sqlalchemy_uri: string) => {
+    const response = await api.post('/sql_lab/databases/test', { sqlalchemy_uri })
+    return response.data
+  },
+  
+  previewTable: async (dbId: number, tableName: string, schema?: string, limit?: number) => {
+    const response = await api.post(`/sql_lab/databases/${dbId}/preview`, { table_name: tableName, schema, limit })
     return response.data
   },
   
@@ -107,7 +132,7 @@ export const sqlLabService = {
     return response.data
   },
   
-  executeQuery: async (data: { database_id: number; sql: string; schema?: string; limit?: number }) => {
+  executeQuery: async (data: { database_id: number; sql: string; schema?: string; limit?: number; params?: Record<string, any> }) => {
     const response = await api.post('/sql_lab/query', data)
     return response.data
   },
@@ -119,6 +144,32 @@ export const sqlLabService = {
   
   getQueryResults: async (queryId: number) => {
     const response = await api.get(`/sql_lab/query/${queryId}/results`)
+    return response.data
+  },
+  
+  // Saved queries
+  getSavedQueries: async () => {
+    const response = await api.get('/sql_lab/saved_queries')
+    return response.data
+  },
+  
+  createSavedQuery: async (data: any) => {
+    const response = await api.post('/sql_lab/saved_queries', data)
+    return response.data
+  },
+  
+  getSavedQuery: async (id: number) => {
+    const response = await api.get(`/sql_lab/saved_queries/${id}`)
+    return response.data
+  },
+  
+  updateSavedQuery: async (id: number, data: any) => {
+    const response = await api.put(`/sql_lab/saved_queries/${id}`, data)
+    return response.data
+  },
+  
+  deleteSavedQuery: async (id: number) => {
+    const response = await api.delete(`/sql_lab/saved_queries/${id}`)
     return response.data
   },
 }

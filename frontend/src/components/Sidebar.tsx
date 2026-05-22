@@ -18,6 +18,7 @@ const menuItems = [
   { key: '/dashboards', icon: <DashboardOutlined />, label: 'Dashboards' },
   { key: '/charts', icon: <BarChartOutlined />, label: 'Charts' },
   { key: '/sqllab', icon: <CodeOutlined />, label: 'SQL Lab' },
+  { key: '/saved-queries', icon: <FileTextOutlined />, label: 'Saved Queries' },
   { key: '/datasets', icon: <DatabaseOutlined />, label: 'Datasets' },
   { key: '/databases', icon: <DatabaseOutlined />, label: 'Databases' },
   { key: '/contributions', icon: <FileTextOutlined />, label: 'Contributions' },

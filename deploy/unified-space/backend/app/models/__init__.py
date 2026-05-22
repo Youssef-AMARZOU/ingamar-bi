@@ -95,9 +95,15 @@ class Database(db.Model):
         return {
             'id': self.id,
             'database_name': self.database_name,
+            'sqlalchemy_uri': self.sqlalchemy_uri,
+            'cache_timeout': self.cache_timeout,
             'expose_in_sqllab': self.expose_in_sqllab,
             'allow_run_async': self.allow_run_async,
-            'created_at': self.created_at.isoformat()
+            'allow_ctas': self.allow_ctas,
+            'allow_cvas': self.allow_cvas,
+            'allow_dml': self.allow_dml,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat()
         }
 
 
@@ -314,6 +320,39 @@ class Query(db.Model):
             'start_time': self.start_time,
             'end_time': self.end_time,
             'created_at': self.created_at.isoformat()
+        }
+
+
+class SavedQuery(db.Model):
+    __tablename__ = 'saved_queries'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(256), nullable=False)
+    description = db.Column(db.Text)
+    database_id = db.Column(db.Integer, db.ForeignKey('databases.id'), nullable=False)
+    sql = db.Column(db.Text, nullable=False)
+    schema = db.Column(db.String(256))
+    parameters = db.Column(db.JSON)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    database = db.relationship('Database', backref='saved_queries')
+    user = db.relationship('User', backref='saved_queries')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description,
+            'database_id': self.database_id,
+            'database_name': self.database.database_name if self.database else None,
+            'sql': self.sql,
+            'schema': self.schema,
+            'parameters': self.parameters or [],
+            'user_id': self.user_id,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat()
         }
 
 

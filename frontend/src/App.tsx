@@ -9,6 +9,7 @@ import DashboardBuilder from './pages/DashboardBuilder'
 import ChartBuilder from './pages/ChartBuilder'
 import ChartList from './pages/ChartList'
 import SQLLab from './pages/SQLLab'
+import SavedQueries from './pages/SavedQueries'
 import Datasets from './pages/Datasets'
 import ETLPage from './pages/ETLPage'
 import Databases from './pages/Databases'
@@ -63,6 +64,7 @@ function App() {
               <Route path="/charts/new" element={<ChartBuilder />} />
               <Route path="/charts/:id" element={<ChartBuilder />} />
               <Route path="/sqllab" element={<SQLLab />} />
+              <Route path="/saved-queries" element={<SavedQueries />} />
               <Route path="/datasets" element={<Datasets />} />
               <Route path="/datasets/:tableName" element={<ETLPage />} />
               <Route path="/databases" element={<Databases />} />

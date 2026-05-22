@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { Row, Col, Select, Button, Input, Table, Card, message, Tabs, Tree, Typography, Badge, Space, Tooltip, Tag } from 'antd'
-import { PlayCircleOutlined, SaveOutlined, ClearOutlined, DatabaseOutlined, TableOutlined, ColumnHeightOutlined, HistoryOutlined, ReloadOutlined } from '@ant-design/icons'
+import { Row, Col, Select, Button, Input, Table, Card, message, Tabs, Tree, Typography, Badge, Space, Tooltip, Tag, Modal, Drawer, Descriptions, Form } from 'antd'
+import { PlayCircleOutlined, SaveOutlined, ClearOutlined, DatabaseOutlined, TableOutlined, ColumnHeightOutlined, HistoryOutlined, ReloadOutlined, EyeOutlined } from '@ant-design/icons'
 import { sqlLabService } from '../services'
+import { useLocation } from 'react-router-dom'
 
 const { Text, Title } = Typography
 const { TextArea } = Input
@@ -18,21 +19,38 @@ interface QueryTab {
 }
 
 const SQLLab: React.FC = () => {
+  const location = useLocation()
   const [databases, setDatabases] = useState<any[]>([])
   const [selectedDb, setSelectedDb] = useState<number | null>(null)
   const [dbSchema, setDbSchema] = useState<any[]>([])
   const [loadingSchema, setLoadingSchema] = useState(false)
   const [queryTabs, setQueryTabs] = useState<QueryTab[]>([
-    { key: '1', title: 'Query 1', sql: '', results: [], columns: [], status: null, rowcount: 0, error: null }
+    { key: '1', title: 'Query 1', sql: location.state?.sql || '', results: [], columns: [], status: null, rowcount: 0, error: null }
   ])
   const [activeTab, setActiveTab] = useState('1')
   const [running, setRunning] = useState(false)
+  const [previewVisible, setPreviewVisible] = useState(false)
+  const [previewData, setPreviewData] = useState<any>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [saveModalVisible, setSaveModalVisible] = useState(false)
+  const [saveForm] = Form.useForm()
+  const [params, setParams] = useState<Record<string, string>>({})
+  const [paramFields, setParamFields] = useState<string[]>([])
 
   const currentTab = queryTabs.find(t => t.key === activeTab) || queryTabs[0]
 
   useEffect(() => {
     fetchDatabases()
+    if (location.state?.databaseId) {
+      setSelectedDb(location.state.databaseId)
+    }
   }, [])
+
+  useEffect(() => {
+    if (selectedDb) {
+      fetchSchema()
+    }
+  }, [selectedDb])
 
   useEffect(() => {
     if (selectedDb) {
@@ -90,6 +108,59 @@ const SQLLab: React.FC = () => {
     }
   }
 
+  const handlePreview = async (tableName: string) => {
+    if (!selectedDb) return
+    setPreviewLoading(true)
+    setPreviewVisible(true)
+    setPreviewData(null)
+    try {
+      const data = await sqlLabService.previewTable(selectedDb, tableName)
+      setPreviewData(data)
+    } catch (err: any) {
+      message.error(err?.response?.data?.error || 'Preview failed')
+      setPreviewVisible(false)
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
+
+  const handleSave = async () => {
+    if (!selectedDb) { message.error('Select a database first'); return }
+    const sql = currentTab.sql.trim()
+    if (!sql) { message.error('Enter a SQL query'); return }
+    saveForm.setFieldsValue({
+      name: currentTab.title,
+      database_id: selectedDb,
+      sql,
+    })
+    setSaveModalVisible(true)
+  }
+
+  const handleSaveSubmit = async (values: any) => {
+    try {
+      await sqlLabService.createSavedQuery(values)
+      message.success('Query saved')
+      setSaveModalVisible(false)
+      saveForm.resetFields()
+    } catch (err: any) {
+      message.error(err?.response?.data?.error || 'Failed to save')
+    }
+  }
+
+  const detectParams = (sql: string) => {
+    const matches = sql.match(/\{\{(\w+)\}\}/g)
+    if (matches) {
+      const fields = matches.map(m => m.replace(/\{\{|\}\}/g, ''))
+      setParamFields([...new Set(fields)])
+    } else {
+      setParamFields([])
+    }
+  }
+
+  useEffect(() => {
+    detectParams(currentTab.sql)
+  }, [currentTab.sql])
+
   const addTab = () => {
     const newKey = String(queryTabs.length + 1)
     setQueryTabs([...queryTabs, { key: newKey, title: `Query ${newKey}`, sql: '', results: [], columns: [], status: null, rowcount: 0, error: null }])
@@ -116,7 +187,7 @@ const SQLLab: React.FC = () => {
     updateCurrentTab({ status: 'running', error: null })
 
     try {
-      const result = await sqlLabService.executeQuery({ database_id: selectedDb, sql, limit: 5000 })
+      const result = await sqlLabService.executeQuery({ database_id: selectedDb, sql, limit: 5000, params: Object.keys(params).length > 0 ? params : undefined })
       
       if (result.status === 'success') {
         const cols = result.columns.map((c: string) => ({ title: c, dataIndex: c, key: c, ellipsis: true }))
@@ -170,7 +241,13 @@ const SQLLab: React.FC = () => {
               <Tree
                 showIcon
                 treeData={dbSchema.map((t: any) => ({
-                  title: <Space size={4}><TableOutlined /><Text style={{ fontSize: 12 }}>{t.name}</Text></Space>,
+                  title: <Space size={4}>
+                    <TableOutlined />
+                    <Text style={{ fontSize: 12 }}>{t.name}</Text>
+                    <Tooltip title="Preview data">
+                      <Button size="small" type="text" icon={<EyeOutlined />} onClick={(e) => { e.stopPropagation(); handlePreview(t.name) }} />
+                    </Tooltip>
+                  </Space>,
                   key: t.name,
                   selectable: false,
                   children: t.columns.map((c: any) => ({
@@ -225,6 +302,9 @@ const SQLLab: React.FC = () => {
                   onChange={setSelectedDb}
                   options={databases.map((db: any) => ({ label: db.database_name, value: db.id }))}
                 />
+                <Tooltip title="Save query">
+                  <Button icon={<SaveOutlined />} onClick={handleSave}>Save</Button>
+                </Tooltip>
                 <Tooltip title="Run (Ctrl+Enter)">
                   <Button type="primary" icon={<PlayCircleOutlined />} onClick={handleRun} loading={running}>
                     Run
@@ -239,11 +319,30 @@ const SQLLab: React.FC = () => {
               value={currentTab.sql}
               onChange={e => updateCurrentTab({ sql: e.target.value })}
               onKeyDown={handleKeyDown}
-              placeholder="Enter SQL query here (Ctrl+Enter to run)..."
+              placeholder="Enter SQL query here (Ctrl+Enter to run)... Use {{variable}} for parameters"
               rows={8}
               style={{ fontFamily: "'Fira Code', 'Consolas', monospace", fontSize: 13, borderRadius: 0, border: 'none', resize: 'vertical' }}
             />
           </Card>
+
+          {paramFields.length > 0 && (
+            <Card size="small" title="Parameters" bodyStyle={{ padding: 8 }} style={{ flex: '0 0 auto', borderTop: 'none' }}>
+              <Space wrap>
+                {paramFields.map(p => (
+                  <div key={p}>
+                    <Text style={{ fontSize: 12, marginRight: 4 }}>{p}:</Text>
+                    <Input
+                      size="small"
+                      style={{ width: 150 }}
+                      placeholder={`Value for ${p}`}
+                      value={params[p] || ''}
+                      onChange={e => setParams(prev => ({ ...prev, [p]: e.target.value }))}
+                    />
+                  </div>
+                ))}
+              </Space>
+            </Card>
+          )}
 
           <Card
             size="small"
@@ -286,6 +385,54 @@ const SQLLab: React.FC = () => {
           </Card>
         </Col>
       </Row>
+
+      <Modal
+        title={previewData ? `Preview: ${previewData.table_name}` : 'Preview'}
+        open={previewVisible}
+        onCancel={() => { setPreviewVisible(false); setPreviewData(null) }}
+        footer={null}
+        width={900}
+      >
+        {previewLoading ? (
+          <Text>Loading preview...</Text>
+        ) : previewData ? (
+          <>
+            <Space style={{ marginBottom: 8 }}>
+              <Text type="secondary">{previewData.rowcount} rows | {previewData.columns?.length} columns</Text>
+            </Space>
+            <Table
+              columns={previewData.columns?.map((c: any) => ({ title: `${c.name} (${c.type})`, dataIndex: c.name, key: c.name, ellipsis: true })) || []}
+              dataSource={previewData.data?.map((r: any, i: number) => ({ ...r, _key: i })) || []}
+              rowKey="_key"
+              size="small"
+              pagination={{ pageSize: 25 }}
+              scroll={{ x: 'max-content' }}
+            />
+          </>
+        ) : null}
+      </Modal>
+
+      <Modal
+        title="Save Query"
+        open={saveModalVisible}
+        onCancel={() => { setSaveModalVisible(false); saveForm.resetFields() }}
+        onOk={() => saveForm.submit()}
+      >
+        <Form form={saveForm} onFinish={handleSaveSubmit} layout="vertical">
+          <Form.Item name="name" label="Query Name" rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="description" label="Description">
+            <Input.TextArea rows={2} />
+          </Form.Item>
+          <Form.Item name="database_id" label="Database" hidden>
+            <Input />
+          </Form.Item>
+          <Form.Item name="sql" label="SQL" hidden>
+            <Input.TextArea />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   )
 }
