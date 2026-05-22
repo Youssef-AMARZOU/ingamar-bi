@@ -778,10 +778,10 @@ def derive_column(table_name):
         if new_col in df.columns:
             return jsonify({'error': f'Column "{new_col}" already exists'}), 400
         
-        expr = expression.replace('{', 'df["').replace('}', '"]')
-        expr = re.sub(r'([a-zA-Z_][a-zA-Z0-9_]*)', r'df["\1"]', expr)
+        import numpy as np
+        expr = re.sub(r'\{([^}]+)\}', r'df["\1"]', expression)
         
-        df[new_col] = eval(expr, {'df': df, 'pd': pd, 'np': __import__('numpy')}, {})
+        df[new_col] = eval(expr, {'df': df, 'pd': pd, 'np': np}, {})
         df.to_sql(table_name, engine, if_exists='replace', index=False)
         
         return jsonify({'message': f'Derived column "{new_col}" created', 'columns': list(df.columns)})
