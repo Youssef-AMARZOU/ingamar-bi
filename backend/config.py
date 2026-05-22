@@ -14,6 +14,9 @@ class Config:
     JWT_SECRET_KEY = os.environ.get('INGAMAR_JWT_SECRET_KEY', 'jwt-secret-key-change-in-production-make-it-longer-than-32-chars')
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=12)
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
+    JWT_TOKEN_LOCATION = ['headers']
+    JWT_HEADER_NAME = 'Authorization'
+    JWT_HEADER_TYPE = 'Bearer'
     
     # CORS
     CORS_ORIGINS = os.environ.get('INGAMAR_CORS_ORIGINS', '*').split(',')

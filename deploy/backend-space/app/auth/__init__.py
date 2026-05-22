@@ -83,7 +83,7 @@ def login():
 def refresh():
     """Refresh access token."""
     current_user_id = get_current_user_id()
-    access_token = create_access_token(identity=current_user_id)
+    access_token = create_access_token(identity=str(current_user_id))
     
     return jsonify({'access_token': access_token}), 200
 
