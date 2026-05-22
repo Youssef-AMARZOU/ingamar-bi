@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  ingamar:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8088:8088"
+    environment:
+      - INGAMAR_SECRET_KEY=your-secret-key-here
+      - INGAMAR_DB_URI=postgresql+psycopg2://ingamar:ingamar@db:5432/ingamar
+      - INGAMAR_REDIS_URI=redis://redis:6379/0
+      - INGAMAR_CELERY_BROKER_URI=redis://redis:6379/0
+      - INGAMAR_CELERY_RESULT_BACKEND_URI=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./backend:/app
+    command: gunicorn -w 2 -b 0.0.0.0:8088 --timeout 300 --limit-request-line 0 --limit-request-field_size 0 'app:create_app()'
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    environment:
+      - INGAMAR_DB_URI=postgresql+psycopg2://ingamar:ingamar@db:5432/ingamar
+      - INGAMAR_REDIS_URI=redis://redis:6379/0
+      - INGAMAR_CELERY_BROKER_URI=redis://redis:6379/0
+      - INGAMAR_CELERY_RESULT_BACKEND_URI=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+    command: celery -A app.celery_app worker --loglevel=info
+
+  celery_beat:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    environment:
+      - INGAMAR_DB_URI=postgresql+psycopg2://ingamar:ingamar@db:5432/ingamar
+      - INGAMAR_REDIS_URI=redis://redis:6379/0
+      - INGAMAR_CELERY_BROKER_URI=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+    command: celery -A app.celery_app beat --loglevel=info
+
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_USER=ingamar
+      - POSTGRES_PASSWORD=ingamar
+      - POSTGRES_DB=ingamar
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8088
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run dev
+volumes:
+  postgres_data:

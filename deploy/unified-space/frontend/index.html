@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/assets/logo.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>INGAMAR - Data Visualization Platform</title>
+  <script>
+    (function() {
+      try {
+        var theme = JSON.parse(localStorage.getItem('ingamar-theme') || '{}');
+        if (theme.state && theme.state.darkMode) {
+          document.documentElement.classList.add('dark');
+        }
+      } catch(e) {}
+    })();
+  </script>
+  <style>
+    html.dark body { background-color: #141414; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+  <script src="https://js.puter.com/v2/"></script>
+</body>
+</html>
