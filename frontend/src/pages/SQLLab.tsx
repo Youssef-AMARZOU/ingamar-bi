@@ -47,7 +47,8 @@ const SQLLab: React.FC = () => {
       if (data.length > 0 && !selectedDb) {
         setSelectedDb(data[0].id)
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error('[SQLLab] fetchDatabases error:', error?.response?.data, error?.message)
       message.error('Failed to load databases')
     }
   }

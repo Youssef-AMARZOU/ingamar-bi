@@ -61,7 +61,8 @@ const ChartBuilder: React.FC = () => {
       setGroupby(data.params?.groupby || [])
       setRowLimit(data.params?.rowLimit || 100)
       if (data.datasource_id) loadColumns(data.datasource_id)
-    } catch (e) {
+    } catch (e: any) {
+      console.error('[ChartBuilder] fetchChart error:', e?.response?.data, e?.message)
       message.error('Failed to load chart')
     }
   }

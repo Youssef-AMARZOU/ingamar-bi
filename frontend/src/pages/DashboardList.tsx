@@ -18,7 +18,8 @@ const DashboardList: React.FC = () => {
     try {
       const data = await dashboardService.list()
       setDashboards(data.dashboards || [])
-    } catch (error) {
+    } catch (error: any) {
+      console.error('[DashboardList] fetchDashboards error:', error?.response?.data, error?.message)
       message.error('Failed to load dashboards')
     } finally {
       setLoading(false)

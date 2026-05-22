@@ -26,7 +26,8 @@ const Users: React.FC = () => {
     try {
       const data = await authService.getUsers()
       setUsers(data)
-    } catch (error) {
+    } catch (error: any) {
+      console.error('[Users] fetchUsers error:', error?.response?.data, error?.message)
       message.error('Failed to load users')
     } finally {
       setLoading(false)

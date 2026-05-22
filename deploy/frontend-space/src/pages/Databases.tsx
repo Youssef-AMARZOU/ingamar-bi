@@ -14,7 +14,8 @@ const Databases: React.FC = () => {
     try {
       const data = await sqlLabService.getDatabases()
       setDatabases(data)
-    } catch (error) {
+    } catch (error: any) {
+      console.error('[Databases] fetchDatabases error:', error?.response?.data, error?.message)
       message.error('Failed to load databases')
     } finally {
       setLoading(false)

@@ -23,7 +23,8 @@ const Datasets: React.FC = () => {
     try {
       const data = await datasetService.list()
       setDatasets(data.datasets || [])
-    } catch (error) {
+    } catch (error: any) {
+      console.error('[Datasets] fetchDatasets error:', error?.response?.data, error?.message)
       message.error('Failed to load datasets')
     } finally {
       setLoading(false)

@@ -34,7 +34,8 @@ const ChartList: React.FC = () => {
     try {
       const data = await chartService.list()
       setCharts(data.charts || [])
-    } catch (error) {
+    } catch (error: any) {
+      console.error('[ChartList] fetchCharts error:', error?.response?.data, error?.message)
       message.error('Failed to load charts')
     } finally {
       setLoading(false)

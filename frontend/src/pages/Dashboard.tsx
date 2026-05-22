@@ -45,7 +45,8 @@ const Dashboard: React.FC = () => {
           console.error(`Failed to load data for chart ${chart.id}`)
         }
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error('[Dashboard] fetchDashboard error:', error?.response?.data, error?.message)
       message.error('Failed to load dashboard')
     } finally {
       setLoading(false)
