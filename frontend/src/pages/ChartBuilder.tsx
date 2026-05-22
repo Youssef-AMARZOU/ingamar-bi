@@ -174,7 +174,8 @@ const ChartBuilder: React.FC = () => {
     const baseOption: any = {
       title: { text: form.getFieldValue('chart_name') || 'Preview', left: 'center', textStyle: { fontSize: 14, fontWeight: 600 } },
       tooltip: { trigger: chartType === 'pie' ? 'item' : 'axis', formatter: chartType === 'pie' ? '{b}: {c} ({d}%)' : '{b}: {c}' },
-      grid: { left: '8%', right: '4%', top: 50, bottom: 40, containLabel: true },
+      legend: { show: chartType !== 'pie' && chartType !== 'table' && chartType !== 'scatter', bottom: 0, type: 'scroll' },
+      grid: { left: '8%', right: '4%', top: 50, bottom: chartType === 'pie' ? 20 : 50, containLabel: true },
       color: ['#1890ff', '#52c41a', '#faad14', '#ff4d4f', '#722ed1', '#13c2c2', '#f5222d', '#eb2f96'],
       animationDuration: 300,
     }
@@ -183,17 +184,17 @@ const ChartBuilder: React.FC = () => {
       case 'bar':
         setPreviewOption({
           ...baseOption,
-          xAxis: { type: 'category', data: keys, axisLabel: { rotate: keys.length > 10 ? 45 : 0, interval: 0 } },
+          xAxis: { type: 'category', data: keys, axisLabel: { rotate: keys.length > 10 ? 45 : 0, interval: 0 }, name: xCol, nameLocation: 'middle', nameGap: 30 },
           yAxis: { type: 'value', name: `${aggFunc}(${yCol})` },
-          series: [{ type: 'bar', data: values, itemStyle: { borderRadius: [4, 4, 0, 0] }, barMaxWidth: 60 }],
+          series: [{ name: `${aggFunc}(${yCol})`, type: 'bar', data: values, itemStyle: { borderRadius: [4, 4, 0, 0] }, barMaxWidth: 60 }],
         })
         break
       case 'line':
         setPreviewOption({
           ...baseOption,
-          xAxis: { type: 'category', data: keys, axisLabel: { rotate: keys.length > 10 ? 45 : 0, interval: 0 } },
+          xAxis: { type: 'category', data: keys, axisLabel: { rotate: keys.length > 10 ? 45 : 0, interval: 0 }, name: xCol, nameLocation: 'middle', nameGap: 30 },
           yAxis: { type: 'value', name: `${aggFunc}(${yCol})` },
-          series: [{ type: 'line', data: values, smooth: true, areaStyle: { opacity: 0.15 }, symbolSize: 6 }],
+          series: [{ name: `${aggFunc}(${yCol})`, type: 'line', data: values, smooth: true, areaStyle: { opacity: 0.15 }, symbolSize: 6 }],
         })
         break
       case 'pie':
@@ -212,9 +213,9 @@ const ChartBuilder: React.FC = () => {
       case 'area':
         setPreviewOption({
           ...baseOption,
-          xAxis: { type: 'category', data: keys, axisLabel: { rotate: keys.length > 10 ? 45 : 0, interval: 0 } },
+          xAxis: { type: 'category', data: keys, axisLabel: { rotate: keys.length > 10 ? 45 : 0, interval: 0 }, name: xCol, nameLocation: 'middle', nameGap: 30 },
           yAxis: { type: 'value', name: `${aggFunc}(${yCol})` },
-          series: [{ type: 'line', data: values, smooth: true, areaStyle: { opacity: 0.4 }, symbolSize: 4 }],
+          series: [{ name: `${aggFunc}(${yCol})`, type: 'line', data: values, smooth: true, areaStyle: { opacity: 0.4 }, symbolSize: 4 }],
         })
         break
       case 'scatter':
@@ -223,7 +224,7 @@ const ChartBuilder: React.FC = () => {
           ...baseOption,
           xAxis: { type: 'value', name: xCol },
           yAxis: { type: 'value', name: yCol },
-          series: [{ type: 'scatter', data: scatterData, symbolSize: 8, itemStyle: { opacity: 0.6 } }],
+          series: [{ name: `${xCol} vs ${yCol}`, type: 'scatter', data: scatterData, symbolSize: 8, itemStyle: { opacity: 0.6 } }],
         })
         break
       case 'table':
