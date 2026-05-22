@@ -6,7 +6,7 @@ import os
 import uuid
 import re
 from datetime import datetime
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import inspect, text
 from app.models import UserConfig
 
 datasets_bp = Blueprint('datasets', __name__)
@@ -17,8 +17,8 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 VALID_TABLE_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
 
 def get_db_engine():
-    database_url = os.environ.get('INGAMAR_DB_URI', 'postgresql+psycopg2://ingamar:ingamar@db:5432/ingamar')
-    return create_engine(database_url)
+    from app import db as _db
+    return _db.engine
 
 def validate_table_name(name):
     if not VALID_TABLE_RE.match(name):
