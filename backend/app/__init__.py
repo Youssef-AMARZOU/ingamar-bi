@@ -1,5 +1,5 @@
 import os
-from flask import Flask
+from flask import Flask, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
@@ -9,6 +9,8 @@ from config import config
 db = SQLAlchemy()
 migrate = Migrate()
 jwt = JWTManager()
+
+STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'static')
 
 def create_app(config_name=None):
     app = Flask(__name__)
@@ -48,6 +50,17 @@ def create_app(config_name=None):
     
     from app.metabase import metabase_bp
     app.register_blueprint(metabase_bp, url_prefix='/api/v1/metabase')
+    
+    # Serve frontend SPA (catch-all for non-API routes)
+    @app.route('/', defaults={'path': ''})
+    @app.route('/<path:path>')
+    def frontend(path):
+        if path.startswith('api/'):
+            return {'error': 'Not found'}, 404
+        full_path = os.path.join(STATIC_DIR, path) if path else STATIC_DIR
+        if path and os.path.isfile(full_path):
+            return send_from_directory(STATIC_DIR, path)
+        return send_from_directory(STATIC_DIR, 'index.html')
     
     # Initialize roles and default user
     with app.app_context():
