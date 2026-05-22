@@ -2,7 +2,7 @@ import axios from 'axios'
 import { useAuthStore } from '../store/auth'
 
 const api = axios.create({
-  baseURL: '/api/v1',
+  baseURL: 'https://ysfmo98-ingamar-bi-backend.hf.space/api/v1',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -45,7 +45,7 @@ api.interceptors.response.use(
       
       try {
         const refreshToken = useAuthStore.getState().refreshToken
-        const response = await axios.post('/api/v1/auth/refresh', {}, {
+        const response = await axios.post('https://ysfmo98-ingamar-bi-backend.hf.space/api/v1/auth/refresh', {}, {
           headers: { Authorization: `Bearer ${refreshToken}` }
         })
         
