@@ -378,3 +378,485 @@ def delete_dataset(table_name):
         return jsonify({'message': f'Dataset "{table_name}" deleted'})
     except Exception as e:
         return jsonify({'error': f'Delete failed: {str(e)}'}), 500
+
+
+@datasets_bp.route('/<table_name>/profile', methods=['GET'])
+@jwt_required()
+def profile_dataset(table_name):
+    """Generate comprehensive data quality profile for a dataset."""
+    valid, err = validate_table_name(table_name)
+    if not valid:
+        return jsonify({'error': err}), 400
+    
+    try:
+        engine = get_db_engine()
+        inspector = inspect(engine)
+        
+        if table_name not in inspector.get_table_names():
+            return jsonify({'error': 'Dataset not found'}), 404
+        
+        df = pd.read_sql(f'SELECT * FROM "{table_name}"', engine)
+        columns_info = []
+        
+        for col in df.columns:
+            col_type = str(df[col].dtype)
+            is_numeric = pd.api.types.is_numeric_dtype(df[col])
+            is_datetime = pd.api.types.is_datetime64_any_dtype(df[col])
+            
+            null_count = int(df[col].isna().sum())
+            null_pct = round(null_count / len(df) * 100, 2) if len(df) > 0 else 0
+            unique_count = int(df[col].nunique())
+            
+            info = {
+                'name': col,
+                'type': col_type,
+                'is_numeric': is_numeric,
+                'is_datetime': is_datetime,
+                'null_count': null_count,
+                'null_pct': null_pct,
+                'unique_count': unique_count,
+                'unique_pct': round(unique_count / len(df) * 100, 2) if len(df) > 0 else 0,
+            }
+            
+            if is_numeric and not df[col].isna().all():
+                info.update({
+                    'min': float(df[col].min()) if pd.notna(df[col].min()) else None,
+                    'max': float(df[col].max()) if pd.notna(df[col].max()) else None,
+                    'mean': round(float(df[col].mean()), 4) if pd.notna(df[col].mean()) else None,
+                    'median': round(float(df[col].median()), 4) if pd.notna(df[col].median()) else None,
+                    'std': round(float(df[col].std()), 4) if pd.notna(df[col].std()) else None,
+                })
+            elif not is_numeric and unique_count <= 20:
+                top_vals = df[col].value_counts().head(10)
+                info['top_values'] = [{'value': str(k), 'count': int(v)} for k, v in top_vals.items()]
+            
+            columns_info.append(info)
+        
+        return jsonify({
+            'table_name': table_name,
+            'row_count': len(df),
+            'column_count': len(df.columns),
+            'columns': columns_info,
+            'duplicate_rows': int(df.duplicated().sum()),
+            'memory_mb': round(df.memory_usage(deep=True).sum() / 1024 / 1024, 2),
+        })
+    except Exception as e:
+        return jsonify({'error': f'Profile failed: {str(e)}'}), 500
+
+
+@datasets_bp.route('/<table_name>/duplicate', methods=['POST'])
+@jwt_required()
+def duplicate_dataset(table_name):
+    """Create a copy of a dataset for editing."""
+    valid, err = validate_table_name(table_name)
+    if not valid:
+        return jsonify({'error': err}), 400
+    
+    data = request.get_json() or {}
+    new_name = data.get('name', f'{table_name}_copy')
+    new_name = re.sub(r'[^a-zA-Z0-9_]', '_', new_name)[:58]
+    
+    try:
+        engine = get_db_engine()
+        inspector = inspect(engine)
+        
+        if table_name not in inspector.get_table_names():
+            return jsonify({'error': 'Dataset not found'}), 404
+        
+        if new_name in inspector.get_table_names():
+            for i in range(2, 100):
+                candidate = f'{new_name}_{i}'
+                if candidate not in inspector.get_table_names():
+                    new_name = candidate
+                    break
+        
+        df = pd.read_sql(f'SELECT * FROM "{table_name}"', engine)
+        df.to_sql(new_name, engine, if_exists='replace', index=False)
+        
+        return jsonify({
+            'message': 'Dataset duplicated',
+            'table_name': new_name,
+            'rows': len(df),
+        })
+    except Exception as e:
+        return jsonify({'error': f'Duplicate failed: {str(e)}'}), 500
+
+
+@datasets_bp.route('/<table_name>/rename-column', methods=['POST'])
+@jwt_required()
+def rename_column(table_name):
+    """Rename a column in the dataset."""
+    valid, err = validate_table_name(table_name)
+    if not valid:
+        return jsonify({'error': err}), 400
+    
+    data = request.get_json()
+    old_name = data.get('old_name', '')
+    new_name = data.get('new_name', '')
+    
+    if not old_name or not new_name:
+        return jsonify({'error': 'old_name and new_name are required'}), 400
+    
+    new_name = re.sub(r'[^a-zA-Z0-9_]', '_', new_name.strip())
+    
+    try:
+        engine = get_db_engine()
+        inspector = inspect(engine)
+        
+        if table_name not in inspector.get_table_names():
+            return jsonify({'error': 'Dataset not found'}), 404
+        
+        df = pd.read_sql(f'SELECT * FROM "{table_name}"', engine)
+        
+        if old_name not in df.columns:
+            return jsonify({'error': f'Column "{old_name}" not found'}), 404
+        
+        df.rename(columns={old_name: new_name}, inplace=True)
+        df.to_sql(table_name, engine, if_exists='replace', index=False)
+        
+        return jsonify({'message': f'Column renamed to "{new_name}"', 'columns': list(df.columns)})
+    except Exception as e:
+        return jsonify({'error': f'Rename failed: {str(e)}'}), 500
+
+
+@datasets_bp.route('/<table_name>/drop-columns', methods=['POST'])
+@jwt_required()
+def drop_columns(table_name):
+    """Drop one or more columns from the dataset."""
+    valid, err = validate_table_name(table_name)
+    if not valid:
+        return jsonify({'error': err}), 400
+    
+    data = request.get_json()
+    columns = data.get('columns', [])
+    
+    if not columns:
+        return jsonify({'error': 'columns list is required'}), 400
+    
+    try:
+        engine = get_db_engine()
+        inspector = inspect(engine)
+        
+        if table_name not in inspector.get_table_names():
+            return jsonify({'error': 'Dataset not found'}), 404
+        
+        df = pd.read_sql(f'SELECT * FROM "{table_name}"', engine)
+        cols_to_drop = [c for c in columns if c in df.columns]
+        
+        if not cols_to_drop:
+            return jsonify({'error': 'No valid columns to drop'}), 400
+        
+        df.drop(columns=cols_to_drop, inplace=True)
+        df.to_sql(table_name, engine, if_exists='replace', index=False)
+        
+        return jsonify({'message': f'Dropped {len(cols_to_drop)} columns', 'columns': list(df.columns)})
+    except Exception as e:
+        return jsonify({'error': f'Drop failed: {str(e)}'}), 500
+
+
+@datasets_bp.route('/<table_name>/cast-column', methods=['POST'])
+@jwt_required()
+def cast_column(table_name):
+    """Change the data type of a column."""
+    valid, err = validate_table_name(table_name)
+    if not valid:
+        return jsonify({'error': err}), 400
+    
+    data = request.get_json()
+    column = data.get('column', '')
+    new_type = data.get('type', '')
+    
+    if not column or not new_type:
+        return jsonify({'error': 'column and type are required'}), 400
+    
+    try:
+        engine = get_db_engine()
+        inspector = inspect(engine)
+        
+        if table_name not in inspector.get_table_names():
+            return jsonify({'error': 'Dataset not found'}), 404
+        
+        df = pd.read_sql(f'SELECT * FROM "{table_name}"', engine)
+        
+        if column not in df.columns:
+            return jsonify({'error': f'Column "{column}" not found'}), 404
+        
+        type_map = {
+            'integer': 'Int64',
+            'float': 'Float64',
+            'string': 'string',
+            'boolean': 'boolean',
+            'datetime': 'datetime64[ns]',
+            'date': 'datetime64[ns]',
+        }
+        
+        target_type = type_map.get(new_type.lower(), new_type)
+        
+        if new_type.lower() in ('integer', 'float'):
+            df[column] = pd.to_numeric(df[column], errors='coerce')
+            if new_type.lower() == 'integer':
+                df[column] = df[column].astype('Int64')
+            else:
+                df[column] = df[column].astype('Float64')
+        elif new_type.lower() == 'datetime':
+            df[column] = pd.to_datetime(df[column], errors='coerce')
+        elif new_type.lower() == 'boolean':
+            df[column] = df[column].astype('boolean')
+        else:
+            df[column] = df[column].astype(str)
+        
+        df.to_sql(table_name, engine, if_exists='replace', index=False)
+        
+        return jsonify({'message': f'Column "{column}" cast to {new_type}'})
+    except Exception as e:
+        return jsonify({'error': f'Cast failed: {str(e)}'}), 500
+
+
+@datasets_bp.route('/<table_name>/fill-nulls', methods=['POST'])
+@jwt_required()
+def fill_nulls(table_name):
+    """Fill missing values in columns."""
+    valid, err = validate_table_name(table_name)
+    if not valid:
+        return jsonify({'error': err}), 400
+    
+    data = request.get_json()
+    fills = data.get('fills', [])
+    
+    if not fills:
+        return jsonify({'error': 'fills list is required'}), 400
+    
+    try:
+        engine = get_db_engine()
+        inspector = inspect(engine)
+        
+        if table_name not in inspector.get_table_names():
+            return jsonify({'error': 'Dataset not found'}), 404
+        
+        df = pd.read_sql(f'SELECT * FROM "{table_name}"', engine)
+        
+        for fill in fills:
+            col = fill.get('column')
+            strategy = fill.get('strategy', 'value')
+            value = fill.get('value')
+            
+            if col not in df.columns:
+                continue
+            
+            if strategy == 'value':
+                df[col] = df[col].fillna(value)
+            elif strategy == 'mean' and pd.api.types.is_numeric_dtype(df[col]):
+                df[col] = df[col].fillna(df[col].mean())
+            elif strategy == 'median' and pd.api.types.is_numeric_dtype(df[col]):
+                df[col] = df[col].fillna(df[col].median())
+            elif strategy == 'mode':
+                mode_val = df[col].mode()
+                if len(mode_val) > 0:
+                    df[col] = df[col].fillna(mode_val[0])
+            elif strategy == 'forward':
+                df[col] = df[col].fillna(method='ffill')
+            elif strategy == 'backward':
+                df[col] = df[col].fillna(method='bfill')
+            elif strategy == 'drop':
+                df = df.dropna(subset=[col])
+        
+        df.to_sql(table_name, engine, if_exists='replace', index=False)
+        
+        return jsonify({'message': 'Nulls filled', 'rows': len(df)})
+    except Exception as e:
+        return jsonify({'error': f'Fill nulls failed: {str(e)}'}), 500
+
+
+@datasets_bp.route('/<table_name>/filter', methods=['POST'])
+@jwt_required()
+def filter_rows(table_name):
+    """Apply row filters to the dataset."""
+    valid, err = validate_table_name(table_name)
+    if not valid:
+        return jsonify({'error': err}), 400
+    
+    data = request.get_json()
+    filters = data.get('filters', [])
+    save_as = data.get('save_as', None)
+    
+    if not filters:
+        return jsonify({'error': 'filters list is required'}), 400
+    
+    try:
+        engine = get_db_engine()
+        inspector = inspect(engine)
+        
+        if table_name not in inspector.get_table_names():
+            return jsonify({'error': 'Dataset not found'}), 404
+        
+        df = pd.read_sql(f'SELECT * FROM "{table_name}"', engine)
+        mask = pd.Series([True] * len(df))
+        
+        for f in filters:
+            col = f.get('column')
+            op = f.get('operator', '==')
+            value = f.get('value')
+            
+            if col not in df.columns:
+                continue
+            
+            if op == '==':
+                mask &= df[col] == value
+            elif op == '!=':
+                mask &= df[col] != value
+            elif op == '>':
+                mask &= df[col] > value
+            elif op == '<':
+                mask &= df[col] < value
+            elif op == '>=':
+                mask &= df[col] >= value
+            elif op == '<=':
+                mask &= df[col] <= value
+            elif op == 'contains':
+                mask &= df[col].astype(str).str.contains(str(value), case=False, na=False)
+            elif op == 'in':
+                mask &= df[col].isin(value) if isinstance(value, list) else df[col] == value
+            elif op == 'notnull':
+                mask &= df[col].notna()
+            elif op == 'isnull':
+                mask &= df[col].isna()
+        
+        df_filtered = df[mask]
+        
+        if save_as:
+            save_as = re.sub(r'[^a-zA-Z0-9_]', '_', save_as)[:58]
+            if save_as in inspector.get_table_names():
+                for i in range(2, 100):
+                    candidate = f'{save_as}_{i}'
+                    if candidate not in inspector.get_table_names():
+                        save_as = candidate
+                        break
+            df_filtered.to_sql(save_as, engine, if_exists='replace', index=False)
+            return jsonify({
+                'message': f'Filtered dataset saved as "{save_as}"',
+                'table_name': save_as,
+                'original_rows': len(df),
+                'filtered_rows': len(df_filtered),
+            })
+        else:
+            df_filtered.to_sql(table_name, engine, if_exists='replace', index=False)
+            return jsonify({
+                'message': 'Filters applied',
+                'original_rows': len(df),
+                'filtered_rows': len(df_filtered),
+            })
+    except Exception as e:
+        return jsonify({'error': f'Filter failed: {str(e)}'}), 500
+
+
+@datasets_bp.route('/<table_name>/derive', methods=['POST'])
+@jwt_required()
+def derive_column(table_name):
+    """Create a new derived/calculated column."""
+    valid, err = validate_table_name(table_name)
+    if not valid:
+        return jsonify({'error': err}), 400
+    
+    data = request.get_json()
+    new_col = data.get('name', '')
+    expression = data.get('expression', '')
+    
+    if not new_col or not expression:
+        return jsonify({'error': 'name and expression are required'}), 400
+    
+    new_col = re.sub(r'[^a-zA-Z0-9_]', '_', new_col.strip())
+    
+    try:
+        engine = get_db_engine()
+        inspector = inspect(engine)
+        
+        if table_name not in inspector.get_table_names():
+            return jsonify({'error': 'Dataset not found'}), 404
+        
+        df = pd.read_sql(f'SELECT * FROM "{table_name}"', engine)
+        
+        if new_col in df.columns:
+            return jsonify({'error': f'Column "{new_col}" already exists'}), 400
+        
+        expr = expression.replace('{', 'df["').replace('}', '"]')
+        expr = re.sub(r'([a-zA-Z_][a-zA-Z0-9_]*)', r'df["\1"]', expr)
+        
+        df[new_col] = eval(expr, {'df': df, 'pd': pd, 'np': __import__('numpy')}, {})
+        df.to_sql(table_name, engine, if_exists='replace', index=False)
+        
+        return jsonify({'message': f'Derived column "{new_col}" created', 'columns': list(df.columns)})
+    except Exception as e:
+        return jsonify({'error': f'Derive failed: {str(e)}'}), 500
+
+
+@datasets_bp.route('/<table_name>/deduplicate', methods=['POST'])
+@jwt_required()
+def deduplicate(table_name):
+    """Remove duplicate rows from the dataset."""
+    valid, err = validate_table_name(table_name)
+    if not valid:
+        return jsonify({'error': err}), 400
+    
+    data = request.get_json() or {}
+    subset = data.get('subset', None)
+    
+    try:
+        engine = get_db_engine()
+        inspector = inspect(engine)
+        
+        if table_name not in inspector.get_table_names():
+            return jsonify({'error': 'Dataset not found'}), 404
+        
+        df = pd.read_sql(f'SELECT * FROM "{table_name}"', engine)
+        original_count = len(df)
+        
+        if subset and all(c in df.columns for c in subset):
+            df = df.drop_duplicates(subset=subset)
+        else:
+            df = df.drop_duplicates()
+        
+        df.to_sql(table_name, engine, if_exists='replace', index=False)
+        
+        return jsonify({
+            'message': 'Duplicates removed',
+            'original_rows': original_count,
+            'clean_rows': len(df),
+            'removed': original_count - len(df),
+        })
+    except Exception as e:
+        return jsonify({'error': f'Deduplicate failed: {str(e)}'}), 500
+
+
+@datasets_bp.route('/<table_name>/sort', methods=['POST'])
+@jwt_required()
+def sort_dataset(table_name):
+    """Sort the dataset by columns."""
+    valid, err = validate_table_name(table_name)
+    if not valid:
+        return jsonify({'error': err}), 400
+    
+    data = request.get_json()
+    sort_by = data.get('sort_by', [])
+    
+    if not sort_by:
+        return jsonify({'error': 'sort_by list is required'}), 400
+    
+    try:
+        engine = get_db_engine()
+        inspector = inspect(engine)
+        
+        if table_name not in inspector.get_table_names():
+            return jsonify({'error': 'Dataset not found'}), 404
+        
+        df = pd.read_sql(f'SELECT * FROM "{table_name}"', engine)
+        
+        columns = [s.get('column') for s in sort_by if s.get('column') in df.columns]
+        ascending = [s.get('ascending', True) for s in sort_by if s.get('column') in df.columns]
+        
+        if columns:
+            df = df.sort_values(by=columns, ascending=ascending)
+            df.to_sql(table_name, engine, if_exists='replace', index=False)
+        
+        return jsonify({'message': 'Dataset sorted'})
+    except Exception as e:
+        return jsonify({'error': f'Sort failed: {str(e)}'}), 500

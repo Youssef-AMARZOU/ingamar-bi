@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Table, Card, Tag, Input, Space, Button, Modal, Typography, Progress, message } from 'antd'
-import { SearchOutlined, UploadOutlined, RobotOutlined, DeleteOutlined, EyeOutlined, ReloadOutlined } from '@ant-design/icons'
+import { SearchOutlined, UploadOutlined, RobotOutlined, DeleteOutlined, EyeOutlined, ReloadOutlined, EditOutlined } from '@ant-design/icons'
+import { useNavigate } from 'react-router-dom'
 import DataUpload from '../components/DataUpload'
 import AIAssistant from '../components/AIAssistant'
 import { datasetService } from '../services'
@@ -8,6 +9,7 @@ import { datasetService } from '../services'
 const { Title } = Typography
 
 const Datasets: React.FC = () => {
+  const navigate = useNavigate()
   const [searchText, setSearchText] = useState('')
   const [datasets, setDatasets] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -52,7 +54,7 @@ const Datasets: React.FC = () => {
     }
   }
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     try {
       await datasetService.delete(id)
       message.success('Dataset deleted')
@@ -98,6 +100,14 @@ const Datasets: React.FC = () => {
         <Space>
           <Button
             size="small"
+            icon={<EditOutlined />}
+            type="primary"
+            onClick={() => navigate(`/datasets/${record.table_name}`)}
+          >
+            ETL
+          </Button>
+          <Button
+            size="small"
             icon={<EyeOutlined />}
             onClick={() => handlePreview(record)}
           >
@@ -118,7 +128,7 @@ const Datasets: React.FC = () => {
             size="small"
             danger
             icon={<DeleteOutlined />}
-            onClick={() => handleDelete(record.id)}
+            onClick={() => handleDelete(record.table_name)}
           />
         </Space>
       )

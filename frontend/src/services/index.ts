@@ -129,7 +129,7 @@ export const datasetService = {
     return response.data
   },
   
-  get: async (id: number) => {
+  get: async (id: string | number) => {
     const response = await api.get(`/datasets/${id}`)
     return response.data
   },
@@ -148,17 +148,17 @@ export const datasetService = {
     return response.data
   },
   
-  delete: async (id: number) => {
+  delete: async (id: string | number) => {
     const response = await api.delete(`/datasets/${id}`)
     return response.data
   },
   
-  getColumns: async (id: number) => {
+  getColumns: async (id: string | number) => {
     const response = await api.get(`/datasets/${id}/columns`)
     return response.data
   },
   
-  preview: async (id: number, limit: number = 100) => {
+  preview: async (id: string | number, limit: number = 100) => {
     const response = await api.get(`/datasets/${id}/preview`, { params: { limit } })
     return response.data
   },
