@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { Table, Button, Space, Modal, Form, Input, Select, message, Card, Collapse, Tag, Radio } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, FolderOutlined, SortAscendingOutlined } from '@ant-design/icons'
+import { PlusOutlined, EditOutlined, DeleteOutlined, FolderOutlined, SortAscendingOutlined, BarChartOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { chartService } from '../services'
 
