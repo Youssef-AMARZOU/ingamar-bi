@@ -45,6 +45,23 @@ def get_dashboard(dashboard_id):
     result['position_json'] = dashboard.position_json
     result['css'] = dashboard.css
     result['json_metadata'] = dashboard.json_metadata
+
+    positions = dashboard.positions.all()
+    chart_ids = []
+    for pos in positions:
+        if pos.chart_id:
+            chart_ids.append(pos.chart_id)
+    result['chart_ids'] = chart_ids
+
+    charts_data = []
+    for pos in positions:
+        if pos.chart_id:
+            chart = Chart.query.get(pos.chart_id)
+            if chart:
+                d = chart.to_dict()
+                d['position'] = pos.position_json
+                charts_data.append(d)
+    result['charts'] = charts_data
     
     return jsonify(result), 200
 

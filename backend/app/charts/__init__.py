@@ -32,11 +32,7 @@ def list_charts():
     charts_data = []
     for c in pagination.items:
         d = c.to_dict()
-        if c.datasource_id:
-            table = Table.query.get(c.datasource_id)
-            d['datasource_name'] = table.table_name if table else None
-        else:
-            d['datasource_name'] = None
+        d['datasource_name'] = c.datasource_id if c.datasource_id else None
         charts_data.append(d)
     
     return jsonify({
@@ -57,11 +53,7 @@ def get_chart(chart_id):
         return jsonify({'error': 'Chart not found'}), 404
     
     d = chart.to_dict()
-    if chart.datasource_id:
-        table = Table.query.get(chart.datasource_id)
-        d['datasource_name'] = table.table_name if table else None
-    else:
-        d['datasource_name'] = None
+    d['datasource_name'] = chart.datasource_id if chart.datasource_id else None
     return jsonify(d), 200
 
 
@@ -204,13 +196,10 @@ def get_chart_data(chart_id):
 
         datasource_id = chart.datasource_id
 
-        if datasource_id and isinstance(datasource_id, int):
-            from app.models import Table
-            table = Table.query.get(datasource_id)
-            if table:
-                datasource_id = table.table_name
-
         if not datasource_id or not isinstance(datasource_id, str):
+            datasource_id = str(datasource_id) if datasource_id else None
+
+        if not datasource_id:
             return jsonify({
                 'chart_id': chart_id,
                 'data': [],

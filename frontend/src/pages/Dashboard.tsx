@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
-import { Spin, message, Card, Row, Col, Typography, Button, Space } from 'antd'
+import { Spin, message, Card, Row, Col, Typography, Button, Space, Empty } from 'antd'
 import ReactECharts from 'echarts-for-react'
 import { dashboardService, chartService } from '../services'
 import {
@@ -32,9 +32,7 @@ const Dashboard: React.FC = () => {
     try {
       const data = await dashboardService.get(Number(id))
       setDashboard(data)
-
-      const chartsData = await chartService.list()
-      const dashboardCharts = chartsData.charts || []
+      const dashboardCharts = data.charts || []
       setCharts(dashboardCharts)
 
       for (const chart of dashboardCharts) {
@@ -68,6 +66,14 @@ const Dashboard: React.FC = () => {
     const cols = data?.columns || []
     const rows = data?.data || []
     const hasData = rows.length > 0
+
+    if (!hasData) {
+      return {
+        title: { text: chart.chart_name, left: 'center', textStyle: { fontSize: 13 } },
+        grid: { top: 50 },
+      }
+    }
+
     const firstCol = cols[0] || 'category'
     const secondCol = cols[1] || 'value'
     const numCol = cols.find((c: string) => !isNaN(Number(rows[0]?.[c]))) || secondCol
@@ -81,8 +87,8 @@ const Dashboard: React.FC = () => {
       color: ['#1890ff', '#52c41a', '#faad14', '#ff4d4f', '#722ed1', '#13c2c2', '#f5222d'],
     }
 
-    const categories = hasData ? rows.map((r: any) => String(r[firstCol] || '')).slice(0, 20) : ['A', 'B', 'C', 'D', 'E']
-    const values = hasData ? rows.map((r: any) => Number(r[numCol]) || 0).slice(0, 20) : [100, 80, 60, 40, 20]
+    const categories = rows.map((r: any) => String(r[firstCol] || '')).slice(0, 20)
+    const values = rows.map((r: any) => Number(r[numCol]) || 0).slice(0, 20)
 
     switch (chart.viz_type) {
       case 'bar':
@@ -90,16 +96,14 @@ const Dashboard: React.FC = () => {
       case 'line':
         return { ...baseOption, xAxis: { type: 'category', data: categories }, yAxis: { type: 'value' }, series: [{ type: 'line', data: values, smooth: true, areaStyle: { opacity: 0.3 } }] }
       case 'pie':
-        const pieData = hasData ? rows.slice(0, 10).map((r: any) => ({ name: String(r[firstCol] || ''), value: Number(r[numCol]) || 0 })) : [{ value: 335, name: 'A' }, { value: 310, name: 'B' }, { value: 180, name: 'C' }]
-        return { ...baseOption, tooltip: { trigger: 'item' }, series: [{ type: 'pie', radius: ['40%', '70%'], data: pieData }] }
+        return { ...baseOption, tooltip: { trigger: 'item' }, series: [{ type: 'pie', radius: ['40%', '70%'], data: rows.slice(0, 10).map((r: any) => ({ name: String(r[firstCol] || ''), value: Number(r[numCol]) || 0 })) }] }
       case 'area':
         return { ...baseOption, xAxis: { type: 'category', data: categories }, yAxis: { type: 'value' }, series: [{ type: 'line', data: values, smooth: true, areaStyle: { opacity: 0.5 } }] }
       case 'scatter':
-        const scatterData = hasData ? rows.slice(0, 50).map((r: any) => [Number(r[cols[0]] || 0), Number(r[cols[1] || cols[0]] || 0)]) : [[10, 20], [30, 40], [50, 60]]
-        return { ...baseOption, xAxis: { type: 'value' }, yAxis: { type: 'value' }, series: [{ type: 'scatter', data: scatterData, symbolSize: 10 }] }
+        return { ...baseOption, xAxis: { type: 'value' }, yAxis: { type: 'value' }, series: [{ type: 'scatter', data: rows.slice(0, 100).map((r: any) => [Number(r[cols[0]] || 0), Number(r[cols[1] || cols[0]] || 0)]), symbolSize: 10 }] }
       case 'heatmap':
-        const hData = hasData ? rows.slice(0, 30).map((r: any, i: number) => [i % 5, Math.floor(i / 5), Number(r[numCol]) || 0]) : []
-        return { ...baseOption, xAxis: { type: 'category', data: [...new Set(hData.map((d: number[]) => String(d[0])))] }, yAxis: { type: 'category', data: [...new Set(hData.map((d: number[]) => String(d[1])))] }, visualMap: { min: 0, max: Math.max(...hData.map((d: number[]) => d[2]), 100), calculable: true, orient: 'horizontal', left: 'center', bottom: 0 }, series: [{ type: 'heatmap', data: hData }] }
+        const hData = rows.slice(0, 30).map((r: any, i: number) => [i % 5, Math.floor(i / 5), Number(r[numCol]) || 0])
+        return { ...baseOption, xAxis: { type: 'category', data: [...new Set(hData.map((d: number[]) => String(d[0])))] }, yAxis: { type: 'category', data: [...new Set(hData.map((d: number[]) => String(d[1])))] }, visualMap: { min: 0, max: Math.max(...hData.map((d: number[]) => d[2]), 1), calculable: true, orient: 'horizontal', left: 'center', bottom: 0 }, series: [{ type: 'heatmap', data: hData }] }
       default:
         return { ...baseOption, xAxis: { type: 'category', data: categories }, yAxis: { type: 'value' }, series: [{ type: 'bar', data: values }] }
     }
@@ -140,51 +144,56 @@ const Dashboard: React.FC = () => {
         </Space>
       </div>
 
-      <Row gutter={[16, 16]}>
-        {charts.map((chart, i) => {
-          const data = chartDataMap[chart.id]
-          const rowCount = data?.rowcount || 0
-          const hasData = rowCount > 0
+      {charts.length === 0 ? (
+        <Card style={{ textAlign: 'center', padding: 60, marginTop: 24 }}>
+          <Empty description="No charts in this dashboard yet" />
+        </Card>
+      ) : (
+        <Row gutter={[16, 16]}>
+          {charts.map((chart, i) => {
+            const data = chartDataMap[chart.id]
+            const rowCount = data?.rowcount || 0
+            const hasData = rowCount > 0
 
-          return (
-            <Col span={chart.viz_type === 'table' || chart.viz_type === 'heatmap' ? 24 : 8} key={chart.id}>
-              <Card
-                style={{ borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', background: darkMode ? '#1f1f1f' : '#fff' }}
-                title={
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {getChartIcon(chart.viz_type)}
-                    <span style={{ color: darkMode ? '#fff' : '#000', fontSize: 13 }}>{chart.chart_name}</span>
-                    {hasData && (
-                      <span style={{ background: '#1890ff', color: '#fff', padding: '0 6px', borderRadius: 4, fontSize: 11, lineHeight: '18px' }}>
-                        {rowCount}
-                      </span>
-                    )}
-                    {!hasData && (
-                      <span style={{ background: '#faad14', color: '#fff', padding: '0 6px', borderRadius: 4, fontSize: 11, lineHeight: '18px' }}>
-                        Mock
-                      </span>
-                    )}
-                  </div>
-                }
-              >
-                <ReactECharts
-                  option={getChartOption(chart)}
-                  style={{ height: 320 }}
-                  theme={darkMode ? 'dark' : undefined}
-                />
-                {chart.description && (
-                  <div style={{
-                    marginTop: 8, padding: '4px 0', borderTop: '1px solid ' + (darkMode ? '#303030' : '#f0f0f0'),
-                    fontSize: 12, color: darkMode ? '#999' : '#666', lineHeight: 1.5
-                  }}>
-                    {chart.description}
-                  </div>
-                )}
-              </Card>
-            </Col>
-          )
-        })}
-      </Row>
+            return (
+              <Col span={chart.viz_type === 'table' || chart.viz_type === 'heatmap' ? 24 : 8} key={chart.id}>
+                <Card
+                  style={{ borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', background: darkMode ? '#1f1f1f' : '#fff' }}
+                  title={
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {getChartIcon(chart.viz_type)}
+                      <span style={{ color: darkMode ? '#fff' : '#000', fontSize: 13 }}>{chart.chart_name}</span>
+                      {hasData && (
+                        <span style={{ background: '#1890ff', color: '#fff', padding: '0 6px', borderRadius: 4, fontSize: 11, lineHeight: '18px' }}>
+                          {rowCount}
+                        </span>
+                      )}
+                    </div>
+                  }
+                >
+                  {hasData ? (
+                    <ReactECharts
+                      option={getChartOption(chart)}
+                      style={{ height: 320 }}
+                      theme={darkMode ? 'dark' : undefined}
+                    />
+                  ) : (
+                    <Empty description="No data" style={{ padding: '40px 0' }} />
+                  )}
+                  {chart.description && (
+                    <div style={{
+                      marginTop: 8, padding: '4px 0', borderTop: '1px solid ' + (darkMode ? '#303030' : '#f0f0f0'),
+                      fontSize: 12, color: darkMode ? '#999' : '#666', lineHeight: 1.5
+                    }}>
+                      {chart.description}
+                    </div>
+                  )}
+                </Card>
+              </Col>
+            )
+          })}
+        </Row>
+      )}
     </div>
   )
 }

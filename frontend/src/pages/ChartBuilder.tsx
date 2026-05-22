@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { Form, Input, Select, Button, Card, Row, Col, message, Space, Typography, Tag, Divider, InputNumber, Tooltip } from 'antd'
+import React, { useState, useEffect, useCallback } from 'react'
+import { Form, Input, Select, Button, Card, Row, Col, message, Space, Typography, Tag, Divider, InputNumber, Tooltip, Spin } from 'antd'
 import { useParams, useNavigate } from 'react-router-dom'
 import ReactECharts from 'echarts-for-react'
 import { chartService, datasetService } from '../services'
@@ -36,6 +36,9 @@ const ChartBuilder: React.FC = () => {
   const [metrics, setMetrics] = useState<string[]>([])
   const [groupby, setGroupby] = useState<string[]>([])
   const [rowLimit, setRowLimit] = useState(100)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [selectedDsName, setSelectedDsName] = useState<string>('')
+  const [hasRealData, setHasRealData] = useState(false)
 
   useEffect(() => {
     fetchDatasets()
@@ -71,17 +74,19 @@ const ChartBuilder: React.FC = () => {
     if (!dsId) return
     try {
       const ds = datasets.find((d: any) => d.id === dsId || d.table_name === dsId)
-      let cols: string[] = []
+      let cols: { name: string; type: string }[] = []
       if (ds?.columns) {
-        cols = ds.columns.map((c: any) => c.name)
+        cols = ds.columns.map((c: any) => ({ name: c.name, type: (c.type || '').toLowerCase() }))
       } else {
         const data = await datasetService.getColumns(Number(dsId))
-        cols = data.columns.map((c: any) => c.name)
+        cols = data.columns.map((c: any) => ({ name: c.name, type: (c.type || '').toLowerCase() }))
       }
-      setDatasetColumns(cols)
-      setNumericColumns(cols)
-      setStringColumns(cols)
+      setDatasetColumns(cols.map(c => c.name))
+      const numericTypes = ['integer', 'bigint', 'smallint', 'numeric', 'decimal', 'float', 'double', 'real', 'int', 'int64', 'float64']
+      setNumericColumns(cols.filter(c => numericTypes.some(t => c.type.startsWith(t)) || c.type === 'double precision').map(c => c.name))
+      setStringColumns(cols.filter(c => !numericTypes.some(t => c.type.startsWith(t)) && c.type !== 'double precision').map(c => c.name))
       setSelectedDataSet(ds)
+      setSelectedDsName(ds?.table_name || String(dsId))
     } catch (e) {
       console.error(e)
     }
@@ -93,43 +98,68 @@ const ChartBuilder: React.FC = () => {
     setGroupby([])
   }
 
-  const generatePreview = () => {
-    const cats = groupby.length > 0 ? groupby[0] : 'category'
-    const met = metrics.length > 0 ? metrics[0] : 'value'
-    const randomData = () => Math.floor(Math.random() * 200) + 50
-    const labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G'].slice(0, Math.max(3, Math.min(7, rowLimit / 10)))
-
-    const baseOption: any = {
-      title: { text: form.getFieldValue('chart_name') || 'Preview', left: 'center', textStyle: { fontSize: 14 } },
-      tooltip: { trigger: chartType === 'pie' ? 'item' : 'axis' },
-      grid: { left: '10%', right: '5%', top: 50, bottom: 40 },
-      color: ['#1890ff', '#52c41a', '#faad14', '#ff4d4f', '#722ed1', '#13c2c2', '#f5222d'],
+  const fetchPreviewData = useCallback(async () => {
+    const dsId = form.getFieldValue('datasource_id') || selectedDataSet?.id
+    if (!dsId) {
+      setPreviewOption({})
+      setHasRealData(false)
+      return
     }
-
-    switch (chartType) {
-      case 'bar':
-        return { ...baseOption, xAxis: { type: 'category', data: labels }, yAxis: { type: 'value' }, series: [{ type: 'bar', data: labels.map(randomData), itemStyle: { borderRadius: [4, 4, 0, 0] } }] }
-      case 'line':
-        return { ...baseOption, xAxis: { type: 'category', data: labels }, yAxis: { type: 'value' }, series: [{ type: 'line', data: labels.map(randomData), smooth: true, areaStyle: { opacity: 0.3 } }] }
-      case 'pie':
-        return { ...baseOption, tooltip: { trigger: 'item' }, series: [{ type: 'pie', radius: ['40%', '70%'], data: labels.map(l => ({ value: randomData(), name: l })), emphasis: { itemStyle: { shadowBlur: 10 } } }] }
-      case 'area':
-        return { ...baseOption, xAxis: { type: 'category', data: labels }, yAxis: { type: 'value' }, series: [{ type: 'line', data: labels.map(randomData), smooth: true, areaStyle: { opacity: 0.5 } }] }
-      case 'scatter':
-        return { ...baseOption, xAxis: { type: 'value' }, yAxis: { type: 'value' }, series: [{ type: 'scatter', data: labels.map(() => [randomData(), randomData()]), symbolSize: 12 }] }
-      case 'heatmap':
-        const days = labels, hours = ['00', '06', '12', '18']
-        return { ...baseOption, tooltip: { position: 'top' }, grid: { height: '60%' }, xAxis: { type: 'category', data: hours }, yAxis: { type: 'category', data: days }, visualMap: { min: 0, max: 200, calculable: true, orient: 'horizontal', left: 'center', bottom: 0 }, series: [{ type: 'heatmap', data: days.flatMap((_, i) => hours.map((_, j) => [j, i, randomData()])) }] }
-      default:
-        return baseOption
+    setPreviewLoading(true)
+    try {
+      const resp = await datasetService.preview(dsId, rowLimit)
+      const rows = resp.data || []
+      const cols = resp.columns || []
+      setHasRealData(rows.length > 0)
+      if (rows.length === 0) {
+        setPreviewOption({ title: { text: 'No data in dataset', left: 'center' } })
+        return
+      }
+      const baseOption: any = {
+        title: { text: form.getFieldValue('chart_name') || 'Preview', left: 'center', textStyle: { fontSize: 14 } },
+        tooltip: { trigger: chartType === 'pie' ? 'item' : 'axis' },
+        grid: { left: '10%', right: '5%', top: 50, bottom: 40 },
+        color: ['#1890ff', '#52c41a', '#faad14', '#ff4d4f', '#722ed1', '#13c2c2', '#f5222d'],
+      }
+      const cats = groupby.length > 0 ? groupby[0] : cols[0]
+      const met = metrics.length > 0 ? metrics[0] : (cols.find((c: string) => !isNaN(Number(rows[0]?.[c]))) || cols[1] || cols[0])
+      const categories = rows.map((r: any) => String(r[cats] || '')).slice(0, 50)
+      const values = rows.map((r: any) => Number(r[met]) || 0).slice(0, 50)
+      switch (chartType) {
+        case 'bar':
+          setPreviewOption({ ...baseOption, xAxis: { type: 'category', data: categories, axisLabel: { rotate: 45 } }, yAxis: { type: 'value' }, series: [{ type: 'bar', data: values, itemStyle: { borderRadius: [4, 4, 0, 0] } }] })
+          break
+        case 'line':
+          setPreviewOption({ ...baseOption, xAxis: { type: 'category', data: categories, axisLabel: { rotate: 45 } }, yAxis: { type: 'value' }, series: [{ type: 'line', data: values, smooth: true, areaStyle: { opacity: 0.3 } }] })
+          break
+        case 'pie':
+          setPreviewOption({ ...baseOption, tooltip: { trigger: 'item' }, series: [{ type: 'pie', radius: ['40%', '70%'], data: categories.map((l: string, i: number) => ({ value: values[i] || 0, name: l })), emphasis: { itemStyle: { shadowBlur: 10 } } }] })
+          break
+        case 'area':
+          setPreviewOption({ ...baseOption, xAxis: { type: 'category', data: categories, axisLabel: { rotate: 45 } }, yAxis: { type: 'value' }, series: [{ type: 'line', data: values, smooth: true, areaStyle: { opacity: 0.5 } }] })
+          break
+        case 'scatter':
+          setPreviewOption({ ...baseOption, xAxis: { type: 'value' }, yAxis: { type: 'value' }, series: [{ type: 'scatter', data: rows.slice(0, 100).map((r: any) => [Number(r[cols[0]] || 0), Number(r[cols[1]] || 0)]), symbolSize: 10 }] })
+          break
+        case 'heatmap':
+          const hData = rows.slice(0, 50).map((r: any, i: number) => [i % 5, Math.floor(i / 5), Number(r[met]) || 0])
+          const xLabels = [...new Set(hData.map((d: number[]) => String(d[0])))]
+          const yLabels = [...new Set(hData.map((d: number[]) => String(d[1])))]
+          setPreviewOption({ ...baseOption, xAxis: { type: 'category', data: xLabels }, yAxis: { type: 'category', data: yLabels }, visualMap: { min: 0, max: Math.max(...hData.map((d: number[]) => d[2]), 1), calculable: true, orient: 'horizontal', left: 'center', bottom: 0 }, series: [{ type: 'heatmap', data: hData }] })
+          break
+        default:
+          setPreviewOption({ ...baseOption, xAxis: { type: 'category', data: categories }, yAxis: { type: 'value' }, series: [{ type: 'bar', data: values }] })
+      }
+    } catch (e) {
+      console.error('Preview fetch failed:', e)
+      setPreviewOption({ title: { text: 'Failed to load preview', left: 'center' } })
+      setHasRealData(false)
+    } finally {
+      setPreviewLoading(false)
     }
-  }
+  }, [chartType, metrics, groupby, rowLimit, selectedDataSet, form])
 
-  const handlePreview = () => {
-    setPreviewOption(generatePreview())
-  }
-
-  useEffect(() => { handlePreview() }, [chartType, metrics, groupby, rowLimit])
+  useEffect(() => { fetchPreviewData() }, [fetchPreviewData])
 
   const handleSubmit = async () => {
     const values = form.getFieldsValue()
@@ -274,15 +304,20 @@ const ChartBuilder: React.FC = () => {
                     Dataset: {selectedDataSet?.table_name || ''} ({datasetColumns.length} cols)
                   </Text>
                 )}
-                <Button size="small" onClick={handlePreview}>Refresh</Button>
+                  {hasRealData && <Text type="secondary" style={{ fontSize: 12 }}>Real data</Text>}
+                <Button size="small" onClick={fetchPreviewData} loading={previewLoading}>Refresh</Button>
               </Space>
             }
           >
-            <ReactECharts
-              option={previewOption}
-              style={{ height: 450, width: '100%' }}
-              theme={darkMode ? 'dark' : undefined}
-            />
+            {previewLoading ? (
+              <Spin style={{ display: 'block', margin: '100px auto' }} />
+            ) : (
+              <ReactECharts
+                option={previewOption}
+                style={{ height: 450, width: '100%' }}
+                theme={darkMode ? 'dark' : undefined}
+              />
+            )}
           </Card>
 
           {datasetColumns.length > 0 && (

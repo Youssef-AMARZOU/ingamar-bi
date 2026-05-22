@@ -185,7 +185,7 @@ class Chart(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    datasource_id = db.Column(db.Integer)
+    datasource_id = db.Column(db.String(256))
     datasource_type = db.Column(db.String(32))
     owner_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     
