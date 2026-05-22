@@ -1,0 +1,84 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Prevent scrollbar jump - always show vertical scrollbar */
+html {
+  overflow-y: scroll;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Force Ant Design Sider to NEVER animate width */
+.ant-layout-sider,
+.ant-layout-sider-children,
+.ant-layout-sider-has-trigger,
+.ant-layout-sider-collapsed {
+  transition: none !important;
+}
+.ant-layout-sider {
+  flex: 0 0 240px !important;
+  max-width: 240px !important;
+  min-width: 240px !important;
+  width: 240px !important;
+}
+
+/* Metabase-style cards */
+.mb-card {
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #e8eaed;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  transition: box-shadow 0.15s ease;
+}
+.mb-card:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+/* Metabase primary button */
+.ant-btn-primary {
+  box-shadow: none !important;
+}
+
+/* Clean header */
+.ant-layout-header {
+  background: #fff !important;
+  border-bottom: 1px solid #e8eaed !important;
+  height: 56px !important;
+  line-height: 56px !important;
+  padding: 0 24px !important;
+}
+
+/* Content area */
+.ant-layout-content {
+  background: #f5f7fa !important;
+}
+
+/* Remove antd table border noise */
+.ant-table-wrapper .ant-table-thead > tr > th {
+  background: #fafbfc !important;
+  border-bottom: 1px solid #e8eaed !important;
+  font-weight: 600 !important;
+  font-size: 12px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  color: #6b7280 !important;
+  padding: 8px 16px !important;
+}
+.ant-table-wrapper .ant-table-tbody > tr > td {
+  padding: 10px 16px !important;
+  border-bottom: 1px solid #f0f0f0 !important;
+}
+.ant-table-wrapper .ant-table-tbody > tr:hover > td {
+  background: #f9fafb !important;
+}

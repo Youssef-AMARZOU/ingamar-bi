@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+  <!-- Background grid -->
+  <defs>
+    <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+      <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#e0e0e0" stroke-width="0.5"/>
+    </pattern>
+  </defs>
+  <rect width="400" height="300" fill="url(#grid)"/>
+  
+  <!-- Logo mark - stylized "D" shape -->
+  <g transform="translate(100, 60)">
+    <!-- Left bracket shape (gray) -->
+    <path d="M 0 0 L 30 0 L 30 20 L 20 20 L 20 80 L 30 80 L 30 100 L 0 100 Z" fill="#808080"/>
+    
+    <!-- Top connector (blue) -->
+    <rect x="40" y="0" width="20" height="20" fill="#1890ff"/>
+    
+    <!-- Bottom connector (blue) -->
+    <rect x="40" y="80" width="20" height="20" fill="#1890ff"/>
+    
+    <!-- Right curve (blue) -->
+    <path d="M 60 0 L 140 0 C 180 0, 180 100, 140 100 L 60 100 L 60 80 L 140 80 C 160 80, 160 20, 140 20 L 60 20 Z" fill="#1890ff"/>
+  </g>
+  
+  <!-- Text -->
+  <text x="200" y="210" font-family="Arial, sans-serif" font-size="36" font-weight="bold" text-anchor="middle" fill="#000">INGAMAR</text>
+  <text x="200" y="245" font-family="Arial, sans-serif" font-size="18" font-weight="normal" text-anchor="middle" fill="#1890ff" letter-spacing="4">BY AMARZOU</text>
+</svg>

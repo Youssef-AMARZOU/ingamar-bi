@@ -119,32 +119,6 @@ def init_roles():
         pass
 
 
-def seed_default_user():
-    """Create default admin user if no users exist."""
-    try:
-        from app.models import User
-        from app import db
-        existing = User.query.filter_by(username='admin').first()
-        if existing:
-            return
-        user = User(
-            username='admin',
-            email='admin@ingamar.com',
-            first_name='Admin',
-            last_name='User',
-            is_superuser=True
-        )
-        user.set_password('admin123')
-        admin_role = Role.query.filter_by(name='Admin').first()
-        if admin_role:
-            user.roles.append(admin_role)
-        db.session.add(user)
-        db.session.commit()
-    except Exception:
-        db.session.rollback()
-        pass
-
-
 def get_role_by_name(name):
     """Get a role by its name."""
     return Role.query.filter_by(name=name).first()

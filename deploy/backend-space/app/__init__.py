@@ -49,10 +49,9 @@ def create_app(config_name=None):
     from app.metabase import metabase_bp
     app.register_blueprint(metabase_bp, url_prefix='/api/v1/metabase')
     
-    # Initialize roles and default user
+    # Initialize roles
     with app.app_context():
-        from app.roles import init_roles, seed_default_user
+        from app.roles import init_roles
         init_roles()
-        seed_default_user()
     
     return app
