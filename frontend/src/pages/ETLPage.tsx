@@ -9,7 +9,7 @@ import {
   DatabaseOutlined, EditOutlined, DeleteOutlined, PlusOutlined,
   ReloadOutlined, FilterOutlined, FunctionOutlined, CopyOutlined,
   SortAscendingOutlined, CheckCircleOutlined, WarningOutlined,
-  InfoCircleOutlined, ThunderboltOutlined
+  InfoCircleOutlined, ThunderboltOutlined, BarChartOutlined
 } from '@ant-design/icons'
 import { datasetService } from '../services'
 import api from '../services/api'
@@ -253,6 +253,9 @@ const ETLPage: React.FC = () => {
         </div>
         <Space>
           <Button icon={<ReloadOutlined />} onClick={() => { fetchProfile(); fetchPreview() }}>Refresh</Button>
+          <Button icon={<BarChartOutlined />} type="primary" onClick={() => navigate(`/charts/new?dataset=${tableName}`)}>
+            Visualize
+          </Button>
           <Button icon={<CopyOutlined />} onClick={() => handleModal('duplicate')}>Duplicate</Button>
           <Button icon={<FilterOutlined />} onClick={() => handleModal('filter')}>Filter</Button>
           <Button icon={<FunctionOutlined />} onClick={() => handleModal('derive')}>Derive Column</Button>
