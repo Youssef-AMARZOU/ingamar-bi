@@ -228,6 +228,28 @@ export function buildChartOption(params: {
       }
     }
 
+    const isHeatmap = chartType === 'heatmap'
+    if (isHeatmap && metrics.length > 0) {
+      const xKeys = keys.slice(0, 20)
+      const yMetric = metrics[0]
+      const heatData: number[][] = []
+      xKeys.forEach((xk, xi) => {
+        const vals = grouped[xk]?.[0] || [0]
+        vals.forEach((v, vi) => {
+          heatData.push([xi, vi, Number(v) || 0])
+        })
+      })
+      const maxVal = Math.max(...heatData.map(d => d[2]), 1)
+      return {
+        ...baseOption,
+        tooltip: { trigger: 'item', backgroundColor: isDark ? '#2d2d2d' : '#fff', borderColor: axisColor, textStyle: { color: textColor } },
+        xAxis: { type: 'category', data: xKeys, axisLabel: { color: textColor, rotate: xKeys.length > 8 ? 45 : 0 }, splitLine: { show: false } },
+        yAxis: { type: 'category', data: heatData.map((_, i) => String(i)), axisLabel: { color: textColor }, splitLine: { show: false } },
+        visualMap: { min: 0, max: maxVal, calculable: true, orient: 'horizontal', left: 'center', bottom: 0, inRange: { color: ['#f7fbff', '#08519c'] }, textStyle: { color: textColor } },
+        series: [{ type: 'heatmap', data: heatData, label: { show: heatData.length <= 100, color: textColor, fontSize: 10 }, emphasis: { itemStyle: { shadowBlur: 6 } } }],
+      }
+    }
+
     const isBar = chartType === 'bar'
     const isLine = chartType === 'line'
     const isArea = chartType === 'area'
