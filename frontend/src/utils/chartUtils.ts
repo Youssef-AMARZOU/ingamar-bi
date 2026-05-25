@@ -41,6 +41,8 @@ export function suggestChartType(cols: any[], data: any[]): string {
       return 'bar'
     }
     if (numericCols.length >= 1) return 'bar'
+    if (stringCols.length >= 2) return 'heatmap'
+    if (stringCols.length >= 1) return 'bar'
     return 'table'
   } catch { return 'bar' }
 }
@@ -48,7 +50,7 @@ export function suggestChartType(cols: any[], data: any[]): string {
 export function autoSelectColumns(cols: any[], data: any[]) {
   try {
     const numericCols = cols.filter(c => isNumericType(c.type)).map(c => c.name)
-    const stringCols = cols.filter(c => !isNumericType(c.type)).map(c => c.name)
+    const stringCols = cols.filter(c => !isNumericType(c.type) && !isDateType(c.type)).map(c => c.name)
     const dateCols = cols.filter(c => isDateType(c.type)).map(c => c.name)
     let xCol = ''
     let yCol = ''
@@ -62,6 +64,10 @@ export function autoSelectColumns(cols: any[], data: any[]) {
     } else if (numericCols.length === 1) {
       xCol = stringCols[0] || dateCols[0] || numericCols[0]
       yCol = numericCols[0]
+    } else if (stringCols.length >= 1) {
+      // String-only dataset: use first string col as X, first string col as Y (COUNT)
+      xCol = stringCols[0]
+      yCol = stringCols[0]
     }
 
     return { xCol, yCol }

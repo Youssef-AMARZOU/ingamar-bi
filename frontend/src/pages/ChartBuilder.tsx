@@ -8,7 +8,7 @@ import {
   BarChartOutlined, LineChartOutlined, PieChartOutlined,
   AreaChartOutlined, DotChartOutlined, TableOutlined,
   PlusOutlined, DeleteOutlined, EyeOutlined, ThunderboltOutlined,
-  ArrowRightOutlined, CloseOutlined
+  ArrowRightOutlined, CloseOutlined, HeatMapOutlined
 } from '@ant-design/icons'
 import ReactECharts from 'echarts-for-react'
 import { chartService, datasetService } from '../services'
@@ -26,6 +26,7 @@ const CHART_TYPES = [
   { value: 'pie', label: 'Pie', icon: <PieChartOutlined />, desc: 'Proportions' },
   { value: 'area', label: 'Area', icon: <AreaChartOutlined />, desc: 'Volume over time' },
   { value: 'scatter', label: 'Scatter', icon: <DotChartOutlined />, desc: 'Correlations' },
+  { value: 'heatmap', label: 'Heatmap', icon: <HeatMapOutlined />, desc: 'Density matrix' },
   { value: 'table', label: 'Table', icon: <TableOutlined />, desc: 'Raw data' },
 ]
 
@@ -123,7 +124,10 @@ const ChartBuilder: React.FC = () => {
           const cols = ds.columns || []
           const { xCol: bestX, yCol: bestY } = autoSelectColumns(cols, data)
           setXCol(bestX)
-          if (bestY) setMetrics([{ key: newMetricKey(), column: bestY, aggregation: 'SUM' }])
+          if (bestY) {
+            const isNum = cols.find((c: any) => c.name === bestY && isNumericType(c.type))
+            setMetrics([{ key: newMetricKey(), column: bestY, aggregation: isNum ? 'SUM' : 'COUNT' }])
+          }
           const suggested = suggestChartType(cols, data)
           setChartType(suggested)
         }
@@ -135,9 +139,11 @@ const ChartBuilder: React.FC = () => {
   const stringColumns = useMemo(() => datasetCols.filter(c => !isNumericType(c.type)).map(c => c.name), [datasetCols])
   const dateColumns = useMemo(() => datasetCols.filter(c => isDateType(c.type)).map(c => c.name), [datasetCols])
 
+  const allColumns = useMemo(() => datasetCols.map(c => c.name), [datasetCols])
+
   const addMetric = () => {
-    const unused = numericColumns.filter(c => !metrics.some(m => m.column === c))
-    setMetrics([...metrics, { key: newMetricKey(), column: unused[0] || '', aggregation: 'SUM' }])
+    const unused = allColumns.filter(c => !metrics.some(m => m.column === c))
+    setMetrics([...metrics, { key: newMetricKey(), column: unused[0] || '', aggregation: 'COUNT' }])
   }
 
   const removeMetric = (key: string) => {
@@ -294,7 +300,7 @@ const ChartBuilder: React.FC = () => {
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                     <Text strong style={{ fontSize: 12 }}>Y Axis (Metrics)</Text>
-                    <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={addMetric} disabled={numericColumns.length === 0}>
+                    <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={addMetric} disabled={allColumns.length === 0}>
                       Add
                     </Button>
                   </div>
@@ -308,7 +314,11 @@ const ChartBuilder: React.FC = () => {
                         value={m.column}
                         onChange={v => updateMetric(m.key, 'column', v)}
                         placeholder="Column"
-                        options={numericColumns.map(c => ({ label: c, value: c }))}
+                        options={[
+                          ...(numericColumns.length > 0 ? [{ label: '— Numeric —', value: '__hdr_n__', disabled: true } as any, ...numericColumns.map(c => ({ label: c, value: c }))] : []),
+                          ...(stringColumns.length > 0 ? [{ label: '— String —', value: '__hdr_s__', disabled: true } as any, ...stringColumns.map(c => ({ label: c, value: c }))] : []),
+                          ...(dateColumns.length > 0 ? [{ label: '— Date —', value: '__hdr_d__', disabled: true } as any, ...dateColumns.map(c => ({ label: c, value: c }))] : []),
+                        ]}
                       />
                       <Select
                         style={{ width: 80, flexShrink: 0 }}
@@ -508,7 +518,11 @@ const ChartBuilder: React.FC = () => {
                       if (isNumericType(col.type)) {
                         if (!metrics.some(m => m.column === col.name))
                           setMetrics([...metrics, { key: newMetricKey(), column: col.name, aggregation: 'SUM' }])
-                      } else if (!xCol) setXCol(col.name)
+                      } else {
+                        if (!metrics.some(m => m.column === col.name))
+                          setMetrics([...metrics, { key: newMetricKey(), column: col.name, aggregation: 'COUNT' }])
+                        else if (!xCol) setXCol(col.name)
+                      }
                     }}
                   >
                     {col.name}
