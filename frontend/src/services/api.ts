@@ -43,8 +43,14 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true
       
+      const refreshToken = useAuthStore.getState().refreshToken
+      if (!refreshToken) {
+        useAuthStore.getState().logout()
+        window.location.href = '/login'
+        return Promise.reject(new Error('Session expired. Please log in again.'))
+      }
+      
       try {
-        const refreshToken = useAuthStore.getState().refreshToken
         const response = await axios.post('/api/v1/auth/refresh', {}, {
           headers: { Authorization: `Bearer ${refreshToken}` }
         })
@@ -53,15 +59,15 @@ api.interceptors.response.use(
         useAuthStore.getState().login(
           useAuthStore.getState().user!,
           access_token,
-          refreshToken!
+          refreshToken
         )
         
         originalRequest.headers.Authorization = `Bearer ${access_token}`
         return api(originalRequest)
-      } catch (refreshError) {
+      } catch {
         useAuthStore.getState().logout()
         window.location.href = '/login'
-        return Promise.reject(refreshError)
+        return Promise.reject(new Error('Session expired. Please log in again.'))
       }
     }
     

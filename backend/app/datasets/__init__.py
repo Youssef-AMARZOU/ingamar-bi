@@ -278,15 +278,15 @@ def import_from_kaggle():
             try:
                 ext = file_path.rsplit('.', 1)[-1].lower()
                 if ext == 'csv':
-                    df = pd.read_csv(file_path, encoding='utf-8', nrows=50000)
+                    df = pd.read_csv(file_path, encoding='utf-8')
                 elif ext == 'tsv':
-                    df = pd.read_csv(file_path, sep='\t', encoding='utf-8', nrows=50000)
+                    df = pd.read_csv(file_path, sep='\t', encoding='utf-8')
                 elif ext == 'json':
                     df = pd.read_json(file_path)
                     if isinstance(df, dict):
                         continue
                 elif ext == 'jsonl':
-                    df = pd.read_json(file_path, lines=True, nrows=50000)
+                    df = pd.read_json(file_path, lines=True)
                 elif ext in ('xlsx', 'xls'):
                     df = pd.read_excel(file_path)
                 elif ext == 'parquet':
