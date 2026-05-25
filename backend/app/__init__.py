@@ -12,7 +12,7 @@ db = SQLAlchemy()
 migrate = Migrate()
 jwt = JWTManager()
 
-STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'static')
+STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'static')
 
 def create_app(config_name=None):
     app = Flask(__name__)
