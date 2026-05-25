@@ -8,14 +8,16 @@ import {
   PlusOutlined, SaveOutlined, ArrowLeftOutlined, DeleteOutlined,
   BarChartOutlined, LineChartOutlined, PieChartOutlined,
   AreaChartOutlined, DotChartOutlined, TableOutlined,
-  FullscreenOutlined, FullscreenExitOutlined, ReloadOutlined
+  FullscreenOutlined, FullscreenExitOutlined, ReloadOutlined,
+  EditOutlined
 } from '@ant-design/icons'
-import { ResponsiveGridLayout as RGL } from 'react-grid-layout'
-const ResponsiveGridLayout = RGL as any
+import { ResponsiveGridLayout as _RGL } from 'react-grid-layout'
+const ResponsiveGridLayout = _RGL as any
 import ReactECharts from 'echarts-for-react'
 import { dashboardService, chartService } from '../services'
 import api from '../services/api'
 import { useThemeStore } from '../store/theme'
+import { buildChartOption, TABLEAU_COLORS, formatNumber } from '../utils/chartUtils'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 
@@ -29,13 +31,6 @@ const CHART_ICONS: Record<string, any> = {
   scatter: <DotChartOutlined />,
   table: <TableOutlined />,
 }
-
-const DEFAULT_LAYOUT = [
-  { i: 'new-1', x: 0, y: 0, w: 6, h: 8 },
-  { i: 'new-2', x: 6, y: 0, w: 6, h: 8 },
-  { i: 'new-3', x: 0, y: 8, w: 6, h: 8 },
-  { i: 'new-4', x: 6, y: 8, w: 6, h: 8 },
-]
 
 const DashboardBuilder: React.FC = () => {
   const { id } = useParams<{ id: string }>()
@@ -64,37 +59,25 @@ const DashboardBuilder: React.FC = () => {
       const data = await dashboardService.get(Number(id))
       setDashboard(data)
       setTitleValue(data.dashboard_title || '')
-
       const dashboardCharts = data.charts || []
       setCharts(dashboardCharts)
-
       const savedLayout = data.json_metadata?.layout || []
       if (savedLayout.length > 0) {
         setLayout(savedLayout)
       } else {
-        const autoLayout = dashboardCharts.map((c: any, i: number) => ({
-          i: String(c.id),
-          x: (i % 2) * 6,
-          y: Math.floor(i / 2) * 8,
-          w: 6,
-          h: 8,
-        }))
-        setLayout(autoLayout)
+        setLayout(dashboardCharts.map((c: any, i: number) => ({
+          i: String(c.id), x: (i % 2) * 6, y: Math.floor(i / 2) * 8, w: 6, h: 8,
+        })))
       }
-
-      for (const chart of dashboardCharts) {
+      await Promise.all(dashboardCharts.map(async (chart: any) => {
         try {
           const result = await chartService.getData(chart.id)
           setChartDataMap(prev => ({ ...prev, [chart.id]: result }))
-        } catch (e) {
-          console.error(`Failed to load data for chart ${chart.id}`)
-        }
-      }
+        } catch (e) { console.error(`Failed to load data for chart ${chart.id}`) }
+      }))
     } catch (error: any) {
       message.error('Failed to load dashboard')
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
   const fetchAvailableCharts = async () => {
@@ -103,9 +86,7 @@ const DashboardBuilder: React.FC = () => {
       const allCharts = data.charts || []
       const existingIds = new Set(charts.map(c => c.id))
       setAvailableCharts(allCharts.filter((c: any) => !existingIds.has(c.id)))
-    } catch (e) {
-      console.error(e)
-    }
+    } catch (e) { console.error(e) }
   }
 
   const handleAddChart = async (chartId: number) => {
@@ -125,9 +106,7 @@ const DashboardBuilder: React.FC = () => {
       message.success('Chart removed')
       setCharts(prev => prev.filter(c => c.id !== chartId))
       setLayout(prev => prev.filter(l => l.i !== String(chartId)))
-    } catch (e: any) {
-      message.error('Failed to remove chart')
-    }
+    } catch (e: any) { message.error('Failed to remove chart') }
   }
 
   const handleLayoutChange = (_layout: any, _layouts: any) => {
@@ -139,68 +118,49 @@ const DashboardBuilder: React.FC = () => {
     try {
       const layoutData = layout.map(l => ({ i: l.i, pos: { x: l.x, y: l.y, w: l.w, h: l.h } }))
       await api.put(`/dashboards/${id}/layout`, { layout: layoutData })
-
-      if (editTitle && titleValue !== dashboard?.dashboard_title) {
+      if (titleValue !== dashboard?.dashboard_title) {
         await dashboardService.update(Number(id), { dashboard_title: titleValue })
-        setEditTitle(false)
       }
-
+      setEditTitle(false)
       message.success('Dashboard saved')
       fetchDashboard()
-    } catch (e: any) {
-      message.error('Failed to save')
-    } finally {
-      setSaving(false)
-    }
+    } catch (e: any) { message.error('Failed to save') } finally { setSaving(false) }
   }
 
   const getChartOption = (chart: any) => {
     const data = chartDataMap[chart.id]
-    const cols = data?.columns || []
     const rows = data?.data || []
-    const hasData = rows.length > 0
+    const cols = data?.columns || []
+    if (!rows?.length || !cols?.length) return null
 
-    if (!hasData) {
-      return {
-        title: { text: chart.chart_name, left: 'center', textStyle: { fontSize: 12 } },
-        grid: { top: 30 },
-      }
-    }
+    const params = chart.params || {}
+    const xCol = params.xCol || params.groupby?.[0]
+    const metrics = params.metrics?.length > 0
+      ? params.metrics.map((m: any) => ({
+          column: m.column?.column_name || m.column || '',
+          aggregation: m.aggregate || 'SUM',
+          label: m.label || `${m.aggregate || 'SUM'}(${m.column?.column_name || m.column || ''})`,
+        }))
+      : (params.yCol
+          ? [{ column: params.yCol, aggregation: params.aggFunc || 'SUM', label: `${params.aggFunc || 'SUM'}(${params.yCol})` }]
+          : [])
 
-    const firstCol = cols[0] || 'category'
-    const numCol = cols.find((c: string) => !isNaN(Number(rows[0]?.[c]))) || cols[1] || cols[0]
-
-    const baseOption: any = {
-      title: { text: chart.chart_name, left: 'center', textStyle: { fontSize: 12, fontWeight: 600 } },
-      tooltip: { trigger: chart.viz_type === 'pie' ? 'item' : 'axis' },
-      grid: { left: '8%', right: '4%', top: 35, bottom: 30, containLabel: true },
-      color: ['#1890ff', '#52c41a', '#faad14', '#ff4d4f', '#722ed1', '#13c2c2'],
-      animation: false,
-    }
-
-    const categories = rows.map((r: any) => String(r[firstCol] || '')).slice(0, 20)
-    const values = rows.map((r: any) => Number(r[numCol]) || 0).slice(0, 20)
-
-    switch (chart.viz_type) {
-      case 'bar':
-        return { ...baseOption, xAxis: { type: 'category', data: categories, axisLabel: { rotate: categories.length > 8 ? 45 : 0 } }, yAxis: { type: 'value' }, series: [{ type: 'bar', data: values, itemStyle: { borderRadius: [3, 3, 0, 0] } }] }
-      case 'line':
-        return { ...baseOption, xAxis: { type: 'category', data: categories }, yAxis: { type: 'value' }, series: [{ type: 'line', data: values, smooth: true, areaStyle: { opacity: 0.2 } }] }
-      case 'pie':
-        return { ...baseOption, tooltip: { trigger: 'item' }, series: [{ type: 'pie', radius: ['35%', '60%'], data: rows.slice(0, 10).map((r: any) => ({ name: String(r[firstCol] || ''), value: Number(r[numCol]) || 0 })) }] }
-      case 'area':
-        return { ...baseOption, xAxis: { type: 'category', data: categories }, yAxis: { type: 'value' }, series: [{ type: 'line', data: values, smooth: true, areaStyle: { opacity: 0.4 } }] }
-      case 'scatter':
-        return { ...baseOption, xAxis: { type: 'value' }, yAxis: { type: 'value' }, series: [{ type: 'scatter', data: rows.slice(0, 50).map((r: any) => [Number(r[cols[0]] || 0), Number(r[cols[1] || cols[0]] || 0)]), symbolSize: 8 }] }
-      default:
-        return { ...baseOption, xAxis: { type: 'category', data: categories }, yAxis: { type: 'value' }, series: [{ type: 'bar', data: values }] }
-    }
+    return buildChartOption({
+      chartType: chart.viz_type || 'bar',
+      xCol: xCol || cols[0],
+      metrics,
+      data: rows,
+      title: chart.chart_name,
+      darkMode,
+      stackMode: params.stackMode || 'none',
+      sortBy: params.sortBy || 'none',
+      showLabels: params.showLabels || false,
+    })
   }
 
   const renderChartContent = (chart: any) => {
     const data = chartDataMap[chart.id]
     const hasData = (data?.rowcount || 0) > 0
-
     if (!hasData) {
       return (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
@@ -209,21 +169,56 @@ const DashboardBuilder: React.FC = () => {
       )
     }
 
+    const option = getChartOption(chart)
+    if (!option) {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+          <Empty description="No preview available" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        </div>
+      )
+    }
+
+    const isTable = chart.viz_type === 'table'
+    if (isTable) {
+      return (
+        <div style={{ height: '100%', overflow: 'auto', padding: 4 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+            <thead>
+              <tr style={{ background: darkMode ? '#2d2d2d' : '#fafafa', position: 'sticky', top: 0 }}>
+                {(data?.columns || []).map((col: string) => (
+                  <th key={col} style={{ padding: '3px 6px', border: '1px solid ' + (darkMode ? '#4b5563' : '#e5e7eb'), textAlign: 'left', fontWeight: 600 }}>{col}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(data?.data || []).slice(0, 50).map((row: any, i: number) => (
+                <tr key={i} style={{ background: i % 2 === 0 ? (darkMode ? '#1f1f1f' : '#fff') : (darkMode ? '#2d2d2d' : '#f9fafb') }}>
+                  {(data?.columns || []).map((col: string) => (
+                    <td key={col} style={{ padding: '2px 6px', border: '1px solid ' + (darkMode ? '#4b5563' : '#e5e7eb'), color: darkMode ? '#e5e7eb' : '#374151' }}>
+                      {isNaN(Number(row[col])) ? String(row[col] ?? '') : formatNumber(Number(row[col]))}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )
+    }
+
     return (
       <ReactECharts
-        option={getChartOption(chart)}
+        option={option}
         style={{ height: '100%', width: '100%' }}
         theme={darkMode ? 'dark' : undefined}
+        notMerge
       />
     )
   }
 
   const gridItems = charts.map(chart => {
     const layoutItem = layout.find(l => l.i === String(chart.id))
-    return {
-      chart,
-      layout: layoutItem || { i: String(chart.id), x: 0, y: 0, w: 6, h: 8 },
-    }
+    return { chart, layout: layoutItem || { i: String(chart.id), x: 0, y: 0, w: 6, h: 8 } }
   })
 
   if (loading) {
@@ -232,7 +227,6 @@ const DashboardBuilder: React.FC = () => {
 
   return (
     <div style={{ background: darkMode ? '#141414' : '#f0f2f5', minHeight: '100vh' }}>
-      {/* Header */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         padding: '12px 24px',
@@ -256,7 +250,7 @@ const DashboardBuilder: React.FC = () => {
               {dashboard?.dashboard_title}
             </Title>
           )}
-          <Tag color="blue">{charts.length} charts</Tag>
+          <Tag color="blue">{charts.length} chart{charts.length !== 1 ? 's' : ''}</Tag>
         </Space>
         <Space>
           <Tooltip title="Refresh data">
@@ -274,7 +268,6 @@ const DashboardBuilder: React.FC = () => {
         </Space>
       </div>
 
-      {/* Grid */}
       <div style={{ padding: fullscreen ? 0 : 16 }}>
         {charts.length === 0 ? (
           <Card style={{ textAlign: 'center', padding: 80, marginTop: 40 }}>
@@ -324,7 +317,6 @@ const DashboardBuilder: React.FC = () => {
         )}
       </div>
 
-      {/* Add Chart Modal */}
       <Modal
         title="Add Chart to Dashboard"
         open={addModalOpen}

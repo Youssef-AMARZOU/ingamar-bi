@@ -1,18 +1,22 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Form, Input, Select, Button, Card, Row, Col, message, Space,
-  Typography, Tag, Divider, InputNumber, Tooltip, Spin, Empty, Badge
+  Typography, Tag, Divider, InputNumber, Tooltip, Spin, Empty, Badge, Popover
 } from 'antd'
-import ReactECharts from 'echarts-for-react'
-import { chartService, datasetService } from '../services'
 import {
   BarChartOutlined, LineChartOutlined, PieChartOutlined,
   AreaChartOutlined, DotChartOutlined, TableOutlined,
-  HeatMapOutlined, PlusOutlined, DeleteOutlined,
-  ThunderboltOutlined, ArrowRightOutlined, EyeOutlined
+  PlusOutlined, DeleteOutlined, EyeOutlined, ThunderboltOutlined,
+  ArrowRightOutlined, CloseOutlined
 } from '@ant-design/icons'
+import ReactECharts from 'echarts-for-react'
+import { chartService, datasetService } from '../services'
 import { useThemeStore } from '../store/theme'
+import {
+  TABLEAU_COLORS, formatNumber, isNumericType, isDateType,
+  suggestChartType, autoSelectColumns, buildChartOption
+} from '../utils/chartUtils'
 
 const { Text } = Typography
 
@@ -25,6 +29,15 @@ const CHART_TYPES = [
   { value: 'table', label: 'Table', icon: <TableOutlined />, desc: 'Raw data' },
 ]
 
+interface MetricDef {
+  key: string
+  column: string
+  aggregation: string
+}
+
+let metricKeyCounter = 0
+const newMetricKey = () => `m_${++metricKeyCounter}_${Date.now()}`
+
 const ChartBuilder: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const [searchParams] = useSearchParams()
@@ -36,14 +49,16 @@ const ChartBuilder: React.FC = () => {
   const [datasetCols, setDatasetCols] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [previewOption, setPreviewOption] = useState<any>(null)
   const [chartType, setChartType] = useState('bar')
   const [xCol, setXCol] = useState<string>('')
-  const [yCol, setYCol] = useState<string>('')
-  const [aggFunc, setAggFunc] = useState('SUM')
+  const [metrics, setMetrics] = useState<MetricDef[]>(() => [{ key: newMetricKey(), column: '', aggregation: 'SUM' }])
   const [rowLimit, setRowLimit] = useState(500)
   const [hasData, setHasData] = useState(false)
   const [dataLoading, setDataLoading] = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [stackMode, setStackMode] = useState<'none' | 'stack' | 'normalize'>('none')
+  const [sortBy, setSortBy] = useState<'none' | 'x' | 'y' | 'y_desc'>('none')
+  const [showLabels, setShowLabels] = useState(false)
   const { darkMode } = useThemeStore()
 
   const preselectDs = searchParams.get('dataset')
@@ -67,9 +82,7 @@ const ChartBuilder: React.FC = () => {
     try {
       const data = await datasetService.list()
       setDatasets(data.datasets || [])
-    } catch (e) {
-      console.error(e)
-    }
+    } catch (e) { console.error(e) }
   }
 
   const fetchChart = async () => {
@@ -78,10 +91,12 @@ const ChartBuilder: React.FC = () => {
       const data = await chartService.get(Number(id))
       form.setFieldsValue(data)
       setChartType(data.viz_type || 'bar')
-      setXCol(data.params?.xCol || '')
-      setYCol(data.params?.yCol || '')
-      setAggFunc(data.params?.aggFunc || 'SUM')
-      setRowLimit(data.params?.rowLimit || 500)
+      const p = data.params || {}
+      setXCol(p.xCol || p.groupby?.[0] || '')
+      const savedMetrics = p.metrics?.length > 0
+        ? p.metrics.map((m: any) => ({ key: newMetricKey(), column: m.column?.column_name || m.column || '', aggregation: m.aggregate || 'SUM' }))
+        : (p.yCol ? [{ key: newMetricKey(), column: p.yCol, aggregation: p.aggFunc || 'SUM' }] : [])
+      if (savedMetrics.length > 0) setMetrics(savedMetrics)
       if (data.datasource_id) handleDatasetChange(data.datasource_id)
     } catch (e: any) {
       message.error('Failed to load chart')
@@ -93,7 +108,7 @@ const ChartBuilder: React.FC = () => {
     setSelectedDs(ds)
     setDatasetCols(ds?.columns || [])
     setXCol('')
-    setYCol('')
+    setMetrics([{ key: newMetricKey(), column: '', aggregation: 'SUM' }])
     setDatasetData([])
     setHasData(false)
 
@@ -101,157 +116,63 @@ const ChartBuilder: React.FC = () => {
       setDataLoading(true)
       try {
         const resp = await datasetService.preview(ds.table_name, Math.min(rowLimit, 1000))
-        setDatasetData(resp.data || [])
-        setHasData((resp.data?.length || 0) > 0)
-        autoSelectColumns(ds.columns || [], resp.data || [])
-      } catch (e) {
-        console.error(e)
-      } finally {
-        setDataLoading(false)
-      }
+        const data = resp.data || []
+        setDatasetData(data)
+        setHasData(data.length > 0)
+        if (data.length > 0) {
+          const cols = ds.columns || []
+          const { xCol: bestX, yCol: bestY } = autoSelectColumns(cols, data)
+          setXCol(bestX)
+          if (bestY) setMetrics([{ key: newMetricKey(), column: bestY, aggregation: 'SUM' }])
+          const suggested = suggestChartType(cols, data)
+          setChartType(suggested)
+        }
+      } catch (e) { console.error(e) } finally { setDataLoading(false) }
     }
-  }
-
-  const autoSelectColumns = (cols: any[], data: any[]) => {
-    const numericCols = cols.filter(c => isNumericType(c.type)).map(c => c.name)
-    const stringCols = cols.filter(c => !isNumericType(c.type)).map(c => c.name)
-    const dateCols = cols.filter(c => isDateType(c.type)).map(c => c.name)
-
-    if (dateCols.length > 0 && numericCols.length > 0) {
-      setXCol(dateCols[0])
-      setYCol(numericCols[0])
-    } else if (stringCols.length > 0 && numericCols.length > 0) {
-      setXCol(stringCols[0])
-      setYCol(numericCols[0])
-    } else if (numericCols.length >= 2) {
-      setXCol(numericCols[0])
-      setYCol(numericCols[1])
-    } else if (stringCols.length > 0 && numericCols.length > 0) {
-      setXCol(stringCols[0])
-      setYCol(numericCols[0])
-    }
-  }
-
-  const isNumericType = (type: string) => {
-    const t = (type || '').toLowerCase()
-    return ['integer', 'bigint', 'smallint', 'numeric', 'decimal', 'float', 'double', 'real', 'int64', 'float64', 'int', 'number'].some(n => t.includes(n))
-  }
-
-  const isDateType = (type: string) => {
-    const t = (type || '').toLowerCase()
-    return ['date', 'time', 'timestamp', 'datetime'].some(n => t.includes(n))
   }
 
   const numericColumns = useMemo(() => datasetCols.filter(c => isNumericType(c.type)).map(c => c.name), [datasetCols])
   const stringColumns = useMemo(() => datasetCols.filter(c => !isNumericType(c.type)).map(c => c.name), [datasetCols])
   const dateColumns = useMemo(() => datasetCols.filter(c => isDateType(c.type)).map(c => c.name), [datasetCols])
 
-  const buildPreview = useCallback(() => {
-    if (!xCol || !yCol || datasetData.length === 0) {
-      setPreviewOption(null)
-      return
-    }
+  const addMetric = () => {
+    const unused = numericColumns.filter(c => !metrics.some(m => m.column === c))
+    setMetrics([...metrics, { key: newMetricKey(), column: unused[0] || '', aggregation: 'SUM' }])
+  }
 
-    const grouped: Record<string, number[]> = {}
-    datasetData.forEach((row: any) => {
-      const key = String(row[xCol] ?? 'null')
-      const val = Number(row[yCol]) || 0
-      if (!grouped[key]) grouped[key] = []
-      grouped[key].push(val)
+  const removeMetric = (key: string) => {
+    if (metrics.length <= 1) return
+    setMetrics(metrics.filter(m => m.key !== key))
+  }
+
+  const updateMetric = (key: string, field: 'column' | 'aggregation', value: string) => {
+    setMetrics(metrics.map(m => m.key === key ? { ...m, [field]: value } : m))
+  }
+
+  const previewOption = useMemo(() => {
+    const activeMetrics = metrics.filter(m => m.column)
+    if (!xCol || activeMetrics.length === 0 || datasetData.length === 0) return null
+    return buildChartOption({
+      chartType,
+      xCol,
+      metrics: activeMetrics.map(m => ({ column: m.column, aggregation: m.aggregation, label: `${m.aggregation}(${m.column})` })),
+      data: datasetData,
+      title: form.getFieldValue('chart_name') || undefined,
+      darkMode,
+      colors: darkMode ? undefined : TABLEAU_COLORS,
+      stackMode,
+      sortBy,
+      showLabels,
     })
-
-    const aggMap: Record<string, (vals: number[]) => number> = {
-      SUM: v => v.reduce((a, b) => a + b, 0),
-      AVG: v => v.reduce((a, b) => a + b, 0) / v.length,
-      COUNT: v => v.length,
-      MAX: v => Math.max(...v),
-      MIN: v => Math.min(...v),
-    }
-
-    const keys = Object.keys(grouped).slice(0, 50)
-    const values = keys.map(k => aggMap[aggFunc]?.(grouped[k]) || 0)
-
-    const baseOption: any = {
-      title: { text: form.getFieldValue('chart_name') || 'Preview', left: 'center', textStyle: { fontSize: 14, fontWeight: 600 } },
-      tooltip: { trigger: chartType === 'pie' ? 'item' : 'axis', formatter: chartType === 'pie' ? '{b}: {c} ({d}%)' : '{b}: {c}' },
-      legend: { show: chartType !== 'pie' && chartType !== 'table' && chartType !== 'scatter', bottom: 0, type: 'scroll' },
-      grid: { left: '8%', right: '4%', top: 50, bottom: chartType === 'pie' ? 20 : 50, containLabel: true },
-      color: ['#1890ff', '#52c41a', '#faad14', '#ff4d4f', '#722ed1', '#13c2c2', '#f5222d', '#eb2f96'],
-      animationDuration: 300,
-    }
-
-    switch (chartType) {
-      case 'bar':
-        setPreviewOption({
-          ...baseOption,
-          xAxis: { type: 'category', data: keys, axisLabel: { rotate: keys.length > 10 ? 45 : 0, interval: 0 }, name: xCol, nameLocation: 'middle', nameGap: 30 },
-          yAxis: { type: 'value', name: `${aggFunc}(${yCol})` },
-          series: [{ name: `${aggFunc}(${yCol})`, type: 'bar', data: values, itemStyle: { borderRadius: [4, 4, 0, 0] }, barMaxWidth: 60 }],
-        })
-        break
-      case 'line':
-        setPreviewOption({
-          ...baseOption,
-          xAxis: { type: 'category', data: keys, axisLabel: { rotate: keys.length > 10 ? 45 : 0, interval: 0 }, name: xCol, nameLocation: 'middle', nameGap: 30 },
-          yAxis: { type: 'value', name: `${aggFunc}(${yCol})` },
-          series: [{ name: `${aggFunc}(${yCol})`, type: 'line', data: values, smooth: true, areaStyle: { opacity: 0.15 }, symbolSize: 6 }],
-        })
-        break
-      case 'pie':
-        setPreviewOption({
-          ...baseOption,
-          tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
-          legend: { orient: 'vertical', right: 10, top: 'center', type: 'scroll' },
-          series: [{
-            type: 'pie', radius: ['35%', '65%'], center: ['40%', '50%'],
-            data: keys.map((k, i) => ({ value: values[i], name: k })),
-            emphasis: { itemStyle: { shadowBlur: 10 } },
-            label: { show: keys.length <= 10 }
-          }],
-        })
-        break
-      case 'area':
-        setPreviewOption({
-          ...baseOption,
-          xAxis: { type: 'category', data: keys, axisLabel: { rotate: keys.length > 10 ? 45 : 0, interval: 0 }, name: xCol, nameLocation: 'middle', nameGap: 30 },
-          yAxis: { type: 'value', name: `${aggFunc}(${yCol})` },
-          series: [{ name: `${aggFunc}(${yCol})`, type: 'line', data: values, smooth: true, areaStyle: { opacity: 0.4 }, symbolSize: 4 }],
-        })
-        break
-      case 'scatter':
-        const scatterData = datasetData.slice(0, 200).map(r => [Number(r[xCol]) || 0, Number(r[yCol]) || 0])
-        setPreviewOption({
-          ...baseOption,
-          xAxis: { type: 'value', name: xCol },
-          yAxis: { type: 'value', name: yCol },
-          series: [{ name: `${xCol} vs ${yCol}`, type: 'scatter', data: scatterData, symbolSize: 8, itemStyle: { opacity: 0.6 } }],
-        })
-        break
-      case 'table':
-        setPreviewOption({
-          ...baseOption,
-          grid: { top: 40, bottom: 20, left: 20, right: 20 },
-          xAxis: { show: false },
-          yAxis: { show: false },
-          series: [{
-            type: 'custom',
-            renderItem: () => null,
-            data: [],
-          }],
-        })
-        break
-      default:
-        setPreviewOption(baseOption)
-    }
-  }, [xCol, yCol, aggFunc, chartType, datasetData, form])
-
-  useEffect(() => { buildPreview() }, [buildPreview])
+  }, [xCol, metrics, chartType, datasetData, form, darkMode, stackMode, sortBy, showLabels])
 
   const handleSubmit = async () => {
     const values = form.getFieldsValue()
     if (!values.chart_name) { message.error('Enter a chart name'); return }
     if (!selectedDs) { message.error('Select a dataset'); return }
-    if (!xCol || !yCol) { message.error('Select X and Y columns'); return }
+    if (!xCol) { message.error('Select X axis column'); return }
+    const activeMetrics = metrics.filter(m => m.column)
+    if (activeMetrics.length === 0) { message.error('Add at least one metric'); return }
 
     setSaving(true)
     try {
@@ -261,7 +182,21 @@ const ChartBuilder: React.FC = () => {
         datasource_id: selectedDs.table_name,
         datasource_type: 'table',
         description: values.description || '',
-        params: { xCol, yCol, aggFunc, rowLimit, groupby: [xCol], metrics: [{ label: yCol, aggregate: aggFunc, column: { column_name: yCol } }] },
+        params: {
+          xCol,
+          yCol: activeMetrics[0].column,
+          aggFunc: activeMetrics[0].aggregation,
+          rowLimit,
+          groupby: [xCol],
+          metrics: activeMetrics.map(m => ({
+            label: `${m.aggregation}(${m.column})`,
+            aggregate: m.aggregation,
+            column: { column_name: m.column },
+          })),
+          stackMode,
+          sortBy,
+          showLabels,
+        },
       }
 
       if (id) {
@@ -274,9 +209,12 @@ const ChartBuilder: React.FC = () => {
       navigate('/charts')
     } catch (err: any) {
       message.error(err?.response?.data?.error || 'Failed to save chart')
-    } finally {
-      setSaving(false)
-    }
+    } finally { setSaving(false) }
+  }
+
+  const chartDesc = (name: string) => {
+    const ct = CHART_TYPES.find(c => c.value === name)
+    return ct?.desc || ''
   }
 
   const colTag = (name: string) => {
@@ -294,10 +232,32 @@ const ChartBuilder: React.FC = () => {
     )
   }
 
+  const suggestions = useMemo(() => {
+    if (!hasData || !xCol) return []
+    const activeMetrics = metrics.filter(m => m.column)
+    if (activeMetrics.length === 0) return []
+    const s = []
+    if (dateColumns.length > 0 && xCol && dateColumns.includes(xCol)) {
+      s.push({ type: 'line', label: 'Line Chart (time trend)', icon: <LineChartOutlined /> })
+    }
+    const uniqueCount = xCol ? new Set(datasetData.map(r => String(r[xCol]))).size : 0
+    if (uniqueCount <= 10 && uniqueCount > 0) {
+      s.push({ type: 'pie', label: 'Pie Chart (proportions)', icon: <PieChartOutlined /> })
+      s.push({ type: 'bar', label: 'Bar Chart (compare)', icon: <BarChartOutlined /> })
+    } else {
+      s.push({ type: 'bar', label: 'Bar Chart (categories)', icon: <BarChartOutlined /> })
+    }
+    if (numericColumns.length >= 2) {
+      s.push({ type: 'scatter', label: 'Scatter Plot (correlation)', icon: <DotChartOutlined /> })
+    }
+    s.push({ type: 'area', label: 'Area Chart (volume)', icon: <AreaChartOutlined /> })
+    return s.filter((v, i, a) => a.findIndex(t => t.type === v.type) === i)
+  }, [hasData, xCol, metrics, datasetData, dateColumns, numericColumns])
+
   return (
     <div style={{ height: 'calc(100vh - 120px)', overflow: 'hidden' }}>
       <Row gutter={16} style={{ height: '100%' }}>
-        <Col span={8} style={{ height: '100%', overflow: 'auto' }}>
+        <Col span={7} style={{ height: '100%', overflow: 'auto' }}>
           <Card title="Chart Configuration" size="small" bodyStyle={{ padding: 12 }}>
             <Form form={form} layout="vertical" size="small">
               <Form.Item label="Chart Name" name="chart_name" rules={[{ required: true }]}>
@@ -318,71 +278,140 @@ const ChartBuilder: React.FC = () => {
                 <>
                   <Divider style={{ margin: '8px 0' }} />
                   <Text strong style={{ fontSize: 12 }}>X Axis (Dimension)</Text>
-                  <div style={{ marginBottom: 8 }}>
+                  <div style={{ marginBottom: 10 }}>
                     <Select
                       style={{ width: '100%' }}
                       value={xCol}
                       onChange={setXCol}
-                      placeholder="Select dimension column"
+                      placeholder="Select dimension"
                       options={[
-                        { label: '— String columns —', value: '__header__', disabled: true },
-                        ...stringColumns.map(c => ({ label: c, value: c })),
-                        ...(dateColumns.length > 0 ? [{ label: '— Date columns —', value: '__header2__', disabled: true }, ...dateColumns.map(c => ({ label: c, value: c }))] : []),
+                        ...(stringColumns.length > 0 ? [{ label: '— String —', value: '__hdr_s__', disabled: true } as any, ...stringColumns.map(c => ({ label: c, value: c }))] : []),
+                        ...(dateColumns.length > 0 ? [{ label: '— Date —', value: '__hdr_d__', disabled: true } as any, ...dateColumns.map(c => ({ label: c, value: c }))] : []),
+                        ...(numericColumns.length > 0 ? [{ label: '— Numeric —', value: '__hdr_n__', disabled: true } as any, ...numericColumns.map(c => ({ label: c, value: c }))] : []),
                       ]}
                     />
                   </div>
 
-                  <Text strong style={{ fontSize: 12 }}>Y Axis (Metric)</Text>
-                  <div style={{ marginBottom: 8 }}>
-                    <Select
-                      style={{ width: '100%' }}
-                      value={yCol}
-                      onChange={setYCol}
-                      placeholder="Select metric column"
-                      options={numericColumns.map(c => ({ label: c, value: c }))}
-                    />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <Text strong style={{ fontSize: 12 }}>Y Axis (Metrics)</Text>
+                    <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={addMetric} disabled={numericColumns.length === 0}>
+                      Add
+                    </Button>
                   </div>
 
-                  <Text strong style={{ fontSize: 12 }}>Aggregation</Text>
-                  <div style={{ marginBottom: 8 }}>
-                    <Select
-                      style={{ width: '100%' }}
-                      value={aggFunc}
-                      onChange={setAggFunc}
-                      options={[
-                        { label: 'SUM', value: 'SUM' },
-                        { label: 'AVG', value: 'AVG' },
-                        { label: 'COUNT', value: 'COUNT' },
-                        { label: 'MAX', value: 'MAX' },
-                        { label: 'MIN', value: 'MIN' },
-                      ]}
-                    />
-                  </div>
+                  {metrics.map((m, idx) => (
+                    <div key={m.key} style={{ display: 'flex', gap: 4, marginBottom: 6, alignItems: 'center' }}>
+                      <Tag style={{ fontSize: 10, flexShrink: 0, margin: 0 }}>{idx + 1}</Tag>
+                      <Select
+                        style={{ flex: 1, minWidth: 0 }}
+                        size="small"
+                        value={m.column}
+                        onChange={v => updateMetric(m.key, 'column', v)}
+                        placeholder="Column"
+                        options={numericColumns.map(c => ({ label: c, value: c }))}
+                      />
+                      <Select
+                        style={{ width: 80, flexShrink: 0 }}
+                        size="small"
+                        value={m.aggregation}
+                        onChange={v => updateMetric(m.key, 'aggregation', v)}
+                        options={[
+                          { label: 'SUM', value: 'SUM' },
+                          { label: 'AVG', value: 'AVG' },
+                          { label: 'COUNT', value: 'COUNT' },
+                          { label: 'MAX', value: 'MAX' },
+                          { label: 'MIN', value: 'MIN' },
+                        ]}
+                      />
+                      {metrics.length > 1 && (
+                        <Button size="small" type="text" danger icon={<CloseOutlined />} onClick={() => removeMetric(m.key)} style={{ flexShrink: 0 }} />
+                      )}
+                    </div>
+                  ))}
                 </>
               )}
 
               <Divider style={{ margin: '8px 0' }} />
               <Text strong style={{ fontSize: 12 }}>Chart Type</Text>
-              <Row gutter={[4, 4]} style={{ marginTop: 4, marginBottom: 12 }}>
+              <div style={{ marginTop: 4, marginBottom: 8, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                 {CHART_TYPES.map(ct => (
-                  <Col span={8} key={ct.value}>
-                    <Tooltip title={ct.desc}>
-                      <div
-                        onClick={() => setChartType(ct.value)}
-                        style={{
-                          textAlign: 'center', padding: '8px 4px', cursor: 'pointer', borderRadius: 6,
-                          border: chartType === ct.value ? '2px solid #1890ff' : '2px solid transparent',
-                          background: chartType === ct.value ? '#e6f7ff' : darkMode ? '#1f1f1f' : '#fafafa',
-                          transition: 'all 0.2s',
-                        }}
-                      >
-                        <div style={{ fontSize: 18 }}>{ct.icon}</div>
-                        <Text style={{ fontSize: 10 }}>{ct.label}</Text>
-                      </div>
-                    </Tooltip>
-                  </Col>
+                  <Tooltip title={ct.desc} key={ct.value}>
+                    <div
+                      onClick={() => setChartType(ct.value)}
+                      style={{
+                        flex: 1, minWidth: 50, textAlign: 'center', padding: '6px 2px', cursor: 'pointer', borderRadius: 6,
+                        border: chartType === ct.value ? '2px solid #1890ff' : '2px solid transparent',
+                        background: chartType === ct.value ? '#e6f7ff' : darkMode ? '#1f1f1f' : '#fafafa',
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      <div style={{ fontSize: 16 }}>{ct.icon}</div>
+                      <Text style={{ fontSize: 9 }}>{ct.label}</Text>
+                    </div>
+                  </Tooltip>
                 ))}
-              </Row>
+              </div>
+
+              {/* Smart suggestions */}
+              {hasData && suggestions.length > 1 && (
+                <div style={{ marginBottom: 8 }}>
+                  <Popover
+                    content={
+                      <div style={{ width: 200 }}>
+                        <Text strong style={{ fontSize: 11 }}>Recommended for this data:</Text>
+                        <div style={{ marginTop: 6 }}>
+                          {suggestions.filter(s => s.type !== chartType).map(s => (
+                            <div
+                              key={s.type}
+                              onClick={() => setChartType(s.type)}
+                              style={{ padding: '4px 8px', cursor: 'pointer', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}
+                              onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
+                              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                            >
+                              {s.icon} {s.label}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    }
+                    trigger="click"
+                    open={showSuggestions}
+                    onOpenChange={setShowSuggestions}
+                  >
+                    <Button size="small" icon={<ThunderboltOutlined />} type="link" style={{ fontSize: 11 }}>
+                      Suggestions
+                    </Button>
+                  </Popover>
+                </div>
+              )}
+
+              {['bar', 'line', 'area'].includes(chartType) && (
+                <div style={{ marginBottom: 10 }}>
+                  <Text strong style={{ fontSize: 12 }}>Options</Text>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                    {chartType !== 'line' && (
+                      <Select size="small" value={stackMode} onChange={setStackMode} style={{ width: 110 }}
+                        options={[
+                          { label: 'Grouped', value: 'none' },
+                          { label: 'Stacked', value: 'stack' },
+                          { label: 'Normalize', value: 'normalize' },
+                        ]}
+                      />
+                    )}
+                    <Select size="small" value={sortBy} onChange={setSortBy} style={{ width: 120 }}
+                      options={[
+                        { label: 'Default order', value: 'none' },
+                        { label: 'Sort by X', value: 'x' },
+                        { label: 'Sort by Y asc', value: 'y' },
+                        { label: 'Sort by Y desc', value: 'y_desc' },
+                      ]}
+                    />
+                    <Select size="small" value={showLabels ? 'yes' : 'no'} onChange={v => setShowLabels(v === 'yes')} style={{ width: 100 }}
+                      options={[{ label: 'Labels: off', value: 'no' }, { label: 'Labels: on', value: 'yes' }]}
+                    />
+                  </div>
+                </div>
+              )}
 
               <Form.Item label="Row Limit">
                 <InputNumber min={10} max={10000} value={rowLimit} onChange={v => setRowLimit(v || 500)} style={{ width: '100%' }} />
@@ -399,34 +428,71 @@ const ChartBuilder: React.FC = () => {
           </Card>
         </Col>
 
-        <Col span={16} style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <Col span={17} style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
           <Card
             title={
               <Space>
                 <EyeOutlined /> Preview
                 {hasData && <Badge count={`${datasetData.length} rows`} style={{ backgroundColor: '#52c41a' }} />}
+                {chartType && <Tag style={{ fontSize: 10 }}>{chartDesc(chartType)}</Tag>}
               </Space>
             }
             size="small"
             style={{ flex: 1 }}
-            bodyStyle={{ height: 'calc(100% - 38px)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}
+            bodyStyle={{ height: 'calc(100% - 38px)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', padding: 0 }}
           >
             {dataLoading ? (
               <Spin tip="Loading data..." />
             ) : !selectedDs ? (
               <Empty description="Select a dataset to start" />
-            ) : !xCol || !yCol ? (
-              <Empty description="Select X and Y columns to preview" />
+            ) : !xCol ? (
+              <Empty description="Select X axis dimension" />
+            ) : metrics.filter(m => m.column).length === 0 ? (
+              <Empty description="Add at least one Y axis metric" />
             ) : !hasData ? (
               <Empty description="No data in dataset" />
             ) : previewOption ? (
-              <ReactECharts
-                option={previewOption}
-                style={{ height: '100%', width: '100%' }}
-                theme={darkMode ? 'dark' : undefined}
-              />
+              <div style={{ width: '100%', height: '100%', padding: 8 }}>
+                {chartType === 'table' ? (
+                  <div style={{ height: '100%', overflow: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                      <thead>
+                        <tr style={{ background: darkMode ? '#2d2d2d' : '#fafafa', position: 'sticky', top: 0 }}>
+                          <th style={{ padding: '6px 8px', border: '1px solid ' + (darkMode ? '#4b5563' : '#e5e7eb'), textAlign: 'left', fontWeight: 600 }}>{xCol}</th>
+                          {metrics.filter(m => m.column).map(m => (
+                            <th key={m.key} style={{ padding: '6px 8px', border: '1px solid ' + (darkMode ? '#4b5563' : '#e5e7eb'), textAlign: 'right', fontWeight: 600 }}>
+                              {m.aggregation}({m.column})
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {datasetData.slice(0, 100).map((row, i) => (
+                          <tr key={i} style={{ background: i % 2 === 0 ? (darkMode ? '#1f1f1f' : '#fff') : (darkMode ? '#2d2d2d' : '#f9fafb') }}>
+                            <td style={{ padding: '4px 8px', border: '1px solid ' + (darkMode ? '#4b5563' : '#e5e7eb'), color: darkMode ? '#e5e7eb' : '#374151' }}>
+                              {String(row[xCol] ?? '')}
+                            </td>
+                            {metrics.filter(m => m.column).map(m => (
+                              <td key={m.key} style={{ padding: '4px 8px', border: '1px solid ' + (darkMode ? '#4b5563' : '#e5e7eb'), textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: darkMode ? '#e5e7eb' : '#374151' }}>
+                                {formatNumber(Number(row[m.column]) || 0)}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <ReactECharts
+                    option={previewOption}
+                    style={{ height: '100%', width: '100%' }}
+                    theme={darkMode ? 'dark' : undefined}
+                    notMerge
+                  />
+                )}
+              </div>
             ) : (
-              <Empty description="No preview available" />
+              <Empty description="Configure chart to see preview" />
             )}
           </Card>
 
@@ -439,8 +505,10 @@ const ChartBuilder: React.FC = () => {
                     color={isNumericType(col.type) ? 'blue' : isDateType(col.type) ? 'cyan' : 'orange'}
                     style={{ cursor: 'pointer', fontSize: 11 }}
                     onClick={() => {
-                      if (isNumericType(col.type) && !yCol) setYCol(col.name)
-                      else if (!isNumericType(col.type) && !xCol) setXCol(col.name)
+                      if (isNumericType(col.type)) {
+                        if (!metrics.some(m => m.column === col.name))
+                          setMetrics([...metrics, { key: newMetricKey(), column: col.name, aggregation: 'SUM' }])
+                      } else if (!xCol) setXCol(col.name)
                     }}
                   >
                     {col.name}
