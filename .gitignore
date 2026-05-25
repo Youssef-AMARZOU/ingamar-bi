@@ -10,7 +10,7 @@ env/
 
 # Node
 node_modules/
-frontend/dist/
+# frontend/dist/ - committed for HF Space Docker build
 frontend/.vite/
 
 # Environment
