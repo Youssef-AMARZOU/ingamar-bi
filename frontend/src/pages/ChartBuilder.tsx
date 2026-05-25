@@ -8,7 +8,8 @@ import {
   BarChartOutlined, LineChartOutlined, PieChartOutlined,
   AreaChartOutlined, DotChartOutlined, TableOutlined,
   PlusOutlined, DeleteOutlined, EyeOutlined, ThunderboltOutlined,
-  ArrowRightOutlined, CloseOutlined, HeatMapOutlined
+  ArrowRightOutlined, CloseOutlined, HeatMapOutlined,
+  ArrowLeftOutlined
 } from '@ant-design/icons'
 import ReactECharts from 'echarts-for-react'
 import { chartService, datasetService } from '../services'
@@ -53,7 +54,7 @@ const ChartBuilder: React.FC = () => {
   const [chartType, setChartType] = useState('bar')
   const [xCol, setXCol] = useState<string>('')
   const [metrics, setMetrics] = useState<MetricDef[]>(() => [{ key: newMetricKey(), column: '', aggregation: 'SUM' }])
-  const [rowLimit, setRowLimit] = useState(500)
+  const [useAllRows, setUseAllRows] = useState(true)
   const [hasData, setHasData] = useState(false)
   const [dataLoading, setDataLoading] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -116,7 +117,7 @@ const ChartBuilder: React.FC = () => {
     if (ds?.table_name) {
       setDataLoading(true)
       try {
-        const resp = await datasetService.preview(ds.table_name, Math.min(rowLimit, 1000))
+        const resp = await datasetService.preview(ds.table_name, useAllRows ? 10000 : 1000)
         const data = resp.data || []
         setDatasetData(data)
         setHasData(data.length > 0)
@@ -190,10 +191,9 @@ const ChartBuilder: React.FC = () => {
         description: values.description || '',
         params: {
           xCol,
-          yCol: activeMetrics[0].column,
-          aggFunc: activeMetrics[0].aggregation,
-          rowLimit,
-          groupby: [xCol],
+        yCol: activeMetrics[0].column,
+        aggFunc: activeMetrics[0].aggregation,
+        groupby: [xCol],
           metrics: activeMetrics.map(m => ({
             label: `${m.aggregation}(${m.column})`,
             aggregate: m.aggregation,
@@ -261,8 +261,12 @@ const ChartBuilder: React.FC = () => {
   }, [hasData, xCol, metrics, datasetData, dateColumns, numericColumns])
 
   return (
-    <div style={{ height: 'calc(100vh - 120px)', overflow: 'hidden' }}>
-      <Row gutter={16} style={{ height: '100%' }}>
+    <div style={{ height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
+      <div style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid #e5e7eb' }}>
+        <Button size="small" icon={<ArrowLeftOutlined />} onClick={() => navigate('/charts')}>Back</Button>
+        <Text strong style={{ fontSize: 14 }}>{id ? 'Edit Chart' : 'Create Chart'}</Text>
+      </div>
+      <Row gutter={16} style={{ height: 'calc(100% - 40px)' }}>
         <Col span={7} style={{ height: '100%', overflow: 'auto' }}>
           <Card title="Chart Configuration" size="small" bodyStyle={{ padding: 12 }}>
             <Form form={form} layout="vertical" size="small">
@@ -423,9 +427,11 @@ const ChartBuilder: React.FC = () => {
                 </div>
               )}
 
-              <Form.Item label="Row Limit">
-                <InputNumber min={10} max={10000} value={rowLimit} onChange={v => setRowLimit(v || 500)} style={{ width: '100%' }} />
-              </Form.Item>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text strong style={{ fontSize: 12 }}>Use All Rows</Text>
+                <Select size="small" value={useAllRows ? 'all' : 'sample'} onChange={v => setUseAllRows(v === 'all')} style={{ width: 100 }}
+                  options={[{ label: 'All rows', value: 'all' }, { label: 'Sample 1K', value: 'sample' }]} />
+              </div>
 
               <Form.Item label="Description" name="description">
                 <Input.TextArea rows={2} placeholder="What does this chart show?" />

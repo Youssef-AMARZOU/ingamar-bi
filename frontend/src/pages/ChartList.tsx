@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { Table, Button, Space, Modal, Form, Input, Select, message, Card, Collapse, Tag, Radio } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, FolderOutlined, SortAscendingOutlined, BarChartOutlined } from '@ant-design/icons'
+import { PlusOutlined, EditOutlined, DeleteOutlined, FolderOutlined, SortAscendingOutlined, BarChartOutlined, ArrowLeftOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { chartService } from '../services'
 
@@ -120,7 +120,10 @@ const ChartList: React.FC = () => {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
-        <h2 style={{ margin: 0 }}>Charts</h2>
+        <Space>
+          <Button size="small" icon={<ArrowLeftOutlined />} onClick={() => navigate('/')}>Back</Button>
+          <h2 style={{ margin: 0 }}>Charts</h2>
+        </Space>
         <Space wrap>
           <Radio.Group value={sortBy} onChange={e => setSortBy(e.target.value)} optionType="button" buttonStyle="solid" size="small">
             <Radio.Button value="created_at"><SortAscendingOutlined /> Date</Radio.Button>
@@ -138,7 +141,8 @@ const ChartList: React.FC = () => {
           <BarChartOutlined style={{ fontSize: 48, color: '#d1d5db', marginBottom: 16 }} />
           <div style={{ fontSize: 18, fontWeight: 600, color: '#374151', marginBottom: 8 }}>No charts yet</div>
           <div style={{ color: '#9ca3af', marginBottom: 24 }}>
-            Import a dataset and use AI analysis to create your first chart.
+            Upload a dataset or use AI analysis to create your first chart.<br/>
+            Charts are stored per-session on this demo instance.
           </div>
           <Space>
             <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/datasets')}>

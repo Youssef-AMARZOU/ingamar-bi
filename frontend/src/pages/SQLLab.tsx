@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Row, Col, Select, Button, Input, Table, Card, message, Tabs, Tree, Typography, Badge, Space, Tooltip, Tag, Modal, Drawer, Descriptions, Form } from 'antd'
-import { PlayCircleOutlined, SaveOutlined, ClearOutlined, DatabaseOutlined, TableOutlined, ColumnHeightOutlined, HistoryOutlined, ReloadOutlined, EyeOutlined } from '@ant-design/icons'
+import { PlayCircleOutlined, SaveOutlined, ClearOutlined, DatabaseOutlined, TableOutlined, ColumnHeightOutlined, HistoryOutlined, ReloadOutlined, EyeOutlined, ArrowLeftOutlined } from '@ant-design/icons'
+import { useNavigate } from 'react-router-dom'
 import { sqlLabService } from '../services'
 import { useLocation } from 'react-router-dom'
 
@@ -19,6 +20,7 @@ interface QueryTab {
 }
 
 const SQLLab: React.FC = () => {
+  const navigate = useNavigate()
   const location = useLocation()
   const [databases, setDatabases] = useState<any[]>([])
   const [selectedDb, setSelectedDb] = useState<number | null>(null)
@@ -187,7 +189,7 @@ const SQLLab: React.FC = () => {
     updateCurrentTab({ status: 'running', error: null })
 
     try {
-      const result = await sqlLabService.executeQuery({ database_id: selectedDb, sql, limit: 5000, params: Object.keys(params).length > 0 ? params : undefined })
+      const result = await sqlLabService.executeQuery({ database_id: selectedDb, sql, limit: 100000, params: Object.keys(params).length > 0 ? params : undefined })
       
       if (result.status === 'success') {
         const cols = result.columns.map((c: string) => ({ title: c, dataIndex: c, key: c, ellipsis: true }))
@@ -213,8 +215,12 @@ const SQLLab: React.FC = () => {
   }
 
   return (
-    <div style={{ height: 'calc(100vh - 120px)', display: 'flex', flexDirection: 'column' }}>
-      <Row gutter={16} style={{ flex: 1, overflow: 'hidden' }}>
+    <div style={{ height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid #e5e7eb', flexShrink: 0 }}>
+        <Button size="small" icon={<ArrowLeftOutlined />} onClick={() => navigate('/')}>Back</Button>
+        <Text strong>SQL Lab</Text>
+      </div>
+      <Row gutter={16} style={{ flex: 1, overflow: 'hidden', paddingTop: 8 }}>
         <Col span={5} style={{ height: '100%' }}>
           <Card
             title={<Space><DatabaseOutlined /> Database</Space>}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Table, Card, Button, Space, Modal, Form, Input, message, Tag, Typography, Popconfirm, Select, Tooltip } from 'antd'
-import { PlayCircleOutlined, EditOutlined, DeleteOutlined, PlusOutlined, ReloadOutlined, CodeOutlined } from '@ant-design/icons'
+import { PlayCircleOutlined, EditOutlined, DeleteOutlined, PlusOutlined, ReloadOutlined, CodeOutlined, ArrowLeftOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { sqlLabService } from '../services'
 
@@ -20,9 +20,10 @@ const SavedQueries: React.FC = () => {
     setLoading(true)
     try {
       const data = await sqlLabService.getSavedQueries()
-      setQueries(data)
+      setQueries(Array.isArray(data) ? data : [])
     } catch (error: any) {
-      message.error('Failed to load saved queries')
+      // Silently handle empty state — no error toast for "no saved queries"
+      setQueries([])
     } finally {
       setLoading(false)
     }
@@ -121,8 +122,11 @@ const SavedQueries: React.FC = () => {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h2>Saved Queries</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <Space>
+          <Button size="small" icon={<ArrowLeftOutlined />} onClick={() => navigate('/sqllab')}>Back</Button>
+          <h2 style={{ margin: 0 }}>Saved Queries</h2>
+        </Space>
         <Space>
           <Button icon={<ReloadOutlined />} onClick={fetchQueries}>Refresh</Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
