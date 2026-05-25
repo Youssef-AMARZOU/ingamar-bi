@@ -9,7 +9,7 @@ import {
   BarChartOutlined, LineChartOutlined, PieChartOutlined,
   AreaChartOutlined, DotChartOutlined, TableOutlined,
   FullscreenOutlined, FullscreenExitOutlined, ReloadOutlined,
-  EditOutlined
+  EditOutlined, RocketOutlined
 } from '@ant-design/icons'
 import { ResponsiveGridLayout as _RGL } from 'react-grid-layout'
 const ResponsiveGridLayout = _RGL as any
@@ -256,7 +256,10 @@ const DashboardBuilder: React.FC = () => {
           <Tooltip title="Refresh data">
             <Button icon={<ReloadOutlined />} onClick={fetchDashboard} loading={refreshing} />
           </Tooltip>
-          <Tooltip title="Add chart">
+          <Tooltip title="Create new chart">
+            <Button icon={<RocketOutlined />} onClick={() => navigate('/charts/new')}>New Chart</Button>
+          </Tooltip>
+          <Tooltip title="Add existing chart">
             <Button icon={<PlusOutlined />} onClick={() => { fetchAvailableCharts(); setAddModalOpen(true) }} />
           </Tooltip>
           <Tooltip title="Toggle fullscreen">

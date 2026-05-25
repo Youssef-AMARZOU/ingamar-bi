@@ -8,6 +8,7 @@ import {
   TeamOutlined,
   SettingOutlined,
   FileTextOutlined,
+  ExperimentOutlined,
 } from '@ant-design/icons'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useThemeStore } from '../store/theme'
@@ -20,6 +21,7 @@ const menuItems = [
   { key: '/sqllab', icon: <CodeOutlined />, label: 'SQL Lab' },
   { key: '/saved-queries', icon: <FileTextOutlined />, label: 'Saved Queries' },
   { key: '/datasets', icon: <DatabaseOutlined />, label: 'Datasets' },
+  { key: '/ml', icon: <ExperimentOutlined />, label: 'ML Studio' },
   { key: '/databases', icon: <DatabaseOutlined />, label: 'Databases' },
   { key: '/contributions', icon: <FileTextOutlined />, label: 'Contributions' },
   { key: '/users', icon: <TeamOutlined />, label: 'Users' },

@@ -53,6 +53,9 @@ def create_app(config_name=None):
     from app.metabase import metabase_bp
     app.register_blueprint(metabase_bp, url_prefix='/api/v1/metabase')
     
+    from app.ml import ml_bp
+    app.register_blueprint(ml_bp, url_prefix='/api/v1/ml')
+    
     # Serve frontend SPA (catch-all for non-API routes)
     @app.route('/', defaults={'path': ''})
     @app.route('/<path:path>')

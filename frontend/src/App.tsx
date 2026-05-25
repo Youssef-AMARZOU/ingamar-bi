@@ -16,6 +16,7 @@ import Databases from './pages/Databases'
 import Contributions from './pages/Contributions'
 import Users from './pages/Users'
 import Settings from './pages/Settings'
+import MLPage from './pages/MLPage'
 import { useAuthStore } from './store/auth'
 import { useThemeStore } from './store/theme'
 
@@ -71,6 +72,7 @@ function App() {
               <Route path="/contributions" element={<Contributions />} />
               <Route path="/users" element={<Users />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/ml" element={<MLPage />} />
             </Routes>
           </Content>
         </Layout>
