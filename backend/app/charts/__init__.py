@@ -176,7 +176,7 @@ def _build_aggregation_query(datasource_id, params):
 
     select_sql = ', '.join(select_cols)
     group_sql = ', '.join(f'"{g}"' for g in groupby_cols)
-    return f'SELECT {select_sql} FROM "{datasource_id}" GROUP BY {group_sql} ORDER BY {agg_parts[0]} DESC LIMIT 100'
+    return f'SELECT {select_sql} FROM "{datasource_id}" GROUP BY {group_sql} ORDER BY {agg_parts[0]} DESC'
 
 
 @charts_bp.route('/<int:chart_id>/data', methods=['POST'])
@@ -233,7 +233,7 @@ def get_chart_data(chart_id):
         if agg_query:
             df = pd.read_sql(agg_query, engine)
         else:
-            df = pd.read_sql(f'SELECT * FROM "{datasource_id}" LIMIT 100', engine)
+            df = pd.read_sql(f'SELECT * FROM "{datasource_id}"', engine)
 
         df = df.where(pd.notna(df), None)
 

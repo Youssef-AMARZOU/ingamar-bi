@@ -23,7 +23,7 @@ Respond ONLY in this exact JSON format, nothing else:
 
 Rules:
 - SQL must be SELECT only, never INSERT/UPDATE/DELETE/DROP
-- Always add LIMIT 500
+- Do not add LIMIT unless specifically requested
 - Use aggregations (SUM, COUNT, AVG) when appropriate
 - For time series, ORDER BY the date column
 - x_column must be a category or date, y_columns must be numeric
