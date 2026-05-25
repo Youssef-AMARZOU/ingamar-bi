@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import { Drawer, Button, Input, message, Typography, Space, Card, List, Spin, Tag, Alert } from 'antd'
-import { SendOutlined, RobotOutlined, BarChartOutlined, CalculatorOutlined, CheckCircleOutlined, LoadingOutlined } from '@ant-design/icons'
+import { Drawer, Button, Input, message, Typography, Space, Card, List, Spin, Tag, Alert, Segmented } from 'antd'
+import { SendOutlined, RobotOutlined, BarChartOutlined, CalculatorOutlined, CheckCircleOutlined, LoadingOutlined, ThunderboltOutlined, CodeOutlined } from '@ant-design/icons'
 import { aiService, datasetService } from '../services'
 import api from '../services/api'
+import ReactECharts from 'echarts-for-react'
+import { buildChartOption } from '../utils/chartUtils'
 
 const { Text } = Typography
 const { TextArea } = Input
@@ -75,6 +77,7 @@ CRITICAL RULES:
 - description must be a readable chart caption/legend`
 
 const AIAssistant: React.FC<AIAssistantProps> = ({ open, onClose, datasetId, datasetName, columns, onSuccess }) => {
+  const [activeTab, setActiveTab] = useState<'analyze' | 'query'>('analyze')
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
@@ -85,6 +88,12 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ open, onClose, datasetId, dat
   const [loading, setLoading] = useState(false)
   const [aiMode, setAiMode] = useState<'puter' | 'api_key' | 'none'>('none')
   const [checkingConfig, setCheckingConfig] = useState(true)
+  const [queryResult, setQueryResult] = useState<{
+    sql: string; data: Record<string,any>[]; columns: string[]
+    chart_type: string; x_column: string; y_columns: string[]
+    title: string; explanation: string; total_rows: number
+  } | null>(null)
+  const [queryError, setQueryError] = useState<string | null>(null)
 
   useEffect(() => {
     if (open) {
@@ -133,6 +142,33 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ open, onClose, datasetId, dat
 
   const handleSend = async () => {
     if (!input.trim()) return
+
+    if (activeTab === 'query') {
+      setLoading(true)
+      setQueryResult(null)
+      setQueryError(null)
+      const q = input
+      setInput('')
+      try {
+        const res = await fetch('/api/v1/ai/query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            question: q,
+            dataset_id: datasetId,
+            table_name: datasetName || datasetId,
+          }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error)
+        setQueryResult(data)
+      } catch (e: any) {
+        setQueryError(e.message)
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
 
     const userMessage: ChatMessage = { role: 'user', content: input }
     setMessages(prev => [...prev, userMessage])
@@ -210,6 +246,20 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ open, onClose, datasetId, dat
       setLoading(false)
     }
   }
+
+  const chartOption = queryResult
+    ? buildChartOption({
+        chartType: queryResult.chart_type,
+        xCol: queryResult.x_column,
+        metrics: queryResult.y_columns.map(c => ({
+          column: c,
+          aggregation: 'SUM',
+          label: c,
+        })),
+        data: queryResult.data,
+        title: queryResult.title,
+      })
+    : null
 
   const handleApplySuggestion = async (suggestion: any, msgIndex: number) => {
     setMessages(prev => {
@@ -312,6 +362,17 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ open, onClose, datasetId, dat
       open={open}
     >
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <Segmented
+          value={activeTab}
+          onChange={(v) => setActiveTab(v as 'analyze' | 'query')}
+          options={[
+            { label: <><RobotOutlined /> Analyze</>, value: 'analyze' },
+            { label: <><ThunderboltOutlined /> Quick Query</>, value: 'query' },
+          ]}
+          style={{ marginBottom: 12, alignSelf: 'center' }}
+          block
+        />
+
         {checkingConfig && (
           <div style={{ textAlign: 'center', padding: 16 }}>
             <Spin size="small" />
@@ -319,122 +380,181 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ open, onClose, datasetId, dat
           </div>
         )}
 
-        {aiMode === 'puter' && !checkingConfig && (
-          <Alert
-            message="Using Puter.js (browser AI)"
-            description="AI runs in your browser via Puter.js — free, no API key needed. You may be asked to sign in to Puter."
-            type="info"
-            showIcon
-            closable
-            style={{ marginBottom: 8 }}
-          />
-        )}
-
-        {aiMode === 'none' && !checkingConfig && (
-          <Alert
-            message="AI not configured"
-            description="Go to Settings → AI API to set up your AI provider (Puter.js works automatically in your browser)."
-            type="warning"
-            showIcon
-            style={{ marginBottom: 8 }}
-          />
-        )}
-
-        <div style={{ flex: 1, overflowY: 'auto', marginBottom: 16 }}>
-          <List
-            dataSource={messages}
-            renderItem={(msg, index) => (
-              <List.Item style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', border: 'none', padding: '8px 0' }}>
-                <Card
-                  style={{
-                    maxWidth: '85%',
-                    background: msg.role === 'user' ? '#1890ff' : '#f5f5f5',
-                    color: msg.role === 'user' ? '#fff' : '#000',
-                    border: 'none',
-                    borderRadius: 12,
-                  }}
-                  bodyStyle={{ padding: '12px 16px' }}
+        {activeTab === 'query' ? (
+          <div style={{ flex: 1, overflowY: 'auto', marginBottom: 16 }}>
+            <div style={{ marginBottom: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {[
+                'Show total sales by category',
+                'Top 10 products by revenue',
+                'Sales trend over time',
+                'Average value by region',
+              ].map(s => (
+                <Tag
+                  key={s}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => { setInput(s); }}
                 >
-                  <Text style={{ color: msg.role === 'user' ? '#fff' : '#000' }}>{msg.content}</Text>
-
-                  {msg.suggestions && msg.suggestions.length > 0 && (
-                    <div style={{ marginTop: 12 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                        <Text strong style={{ color: msg.role === 'user' ? '#fff' : '#000', fontSize: 12 }}>
-                          Suggested actions:
-                        </Text>
-                        <Button
-                          size="small"
-                          type={msg.role === 'user' ? 'primary' : 'default'}
-                          onClick={() => handleApplyAll(msg.suggestions!, index)}
-                        >
-                          Apply All
-                        </Button>
-                      </div>
-                      <List
-                        size="small"
-                        dataSource={msg.suggestions}
-                        style={{ marginTop: 8 }}
-                        renderItem={(suggestion) => (
-                          <List.Item style={{ padding: '4px 0', border: 'none' }}>
-                            <Card
-                              size="small"
-                              style={{
-                                width: '100%',
-                                background: msg.role === 'user' ? 'rgba(255,255,255,0.1)' : '#fff',
-                                border: `1px solid ${msg.role === 'user' ? 'rgba(255,255,255,0.3)' : '#d9d9d9'}`,
-                              }}
-                              extra={
-                                <Button
-                                  size="small"
-                                  type="primary"
-                                  onClick={() => handleApplySuggestion(suggestion, index)}
-                                >
-                                  Apply
-                                </Button>
-                              }
-                            >
-                              <Space>
-                                {suggestion.type === 'metric' ? <CalculatorOutlined /> : <BarChartOutlined />}
-                                <Text strong style={{ fontSize: 12 }}>{suggestion.title}</Text>
-                                <Tag color={suggestion.type === 'metric' ? 'blue' : 'green'}>
-                                  {suggestion.type}
-                                </Tag>
-                              </Space>
-                              <Text style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
-                                {suggestion.description}
-                              </Text>
-                            </Card>
-                          </List.Item>
-                        )}
-                      />
-                    </div>
-                  )}
-
-                  {msg.createdItems && msg.createdItems.length > 0 && (
-                    <div style={{ marginTop: 8 }}>
-                      {msg.createdItems.map((item, i) => (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                          {item.status === 'loading' && <LoadingOutlined style={{ fontSize: 12 }} />}
-                          {item.status === 'success' && <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 12 }} />}
-                          {item.status === 'error' && <Tag color="red">Failed</Tag>}
-                          <Text style={{ fontSize: 12 }}>{item.title}</Text>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </Card>
-              </List.Item>
-            )}
-          />
-
-          {loading && (
-            <div style={{ textAlign: 'center', padding: 16 }}>
-              <Spin />
-              <Text type="secondary" style={{ marginLeft: 8 }}>AI is thinking...</Text>
+                  {s}
+                </Tag>
+              ))}
             </div>
-          )}
-        </div>
+
+            {queryResult && (
+              <Card title={queryResult.title} size="small" style={{ marginBottom: 12 }}>
+                <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+                  {queryResult.explanation}
+                </Text>
+                <Text style={{ fontSize: 12, color: '#888' }}>
+                  {queryResult.total_rows} rows · {queryResult.columns.length} columns
+                </Text>
+                {chartOption && (
+                  <ReactECharts option={chartOption} style={{ height: 300, marginTop: 8 }} />
+                )}
+                <details style={{ marginTop: 8 }}>
+                  <summary style={{ cursor: 'pointer', color: '#888', fontSize: 12 }}>
+                    <CodeOutlined /> View SQL
+                  </summary>
+                  <pre style={{
+                    background: '#1e1e1e', color: '#d4d4d4',
+                    padding: 12, borderRadius: 6, marginTop: 8,
+                    fontSize: 12, overflow: 'auto', maxHeight: 200,
+                  }}>
+                    {queryResult.sql}
+                  </pre>
+                </details>
+              </Card>
+            )}
+
+            {queryError && (
+              <Alert type="error" message={queryError} showIcon style={{ marginBottom: 12 }} />
+            )}
+
+            {loading && (
+              <div style={{ textAlign: 'center', padding: 24 }}>
+                <Spin tip="Generating query..." />
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            {aiMode === 'puter' && !checkingConfig && (
+              <Alert
+                message="Using Puter.js (browser AI)"
+                description="AI runs in your browser via Puter.js — free, no API key needed. You may be asked to sign in to Puter."
+                type="info"
+                showIcon
+                closable
+                style={{ marginBottom: 8 }}
+              />
+            )}
+
+            {aiMode === 'none' && !checkingConfig && (
+              <Alert
+                message="AI not configured"
+                description="Go to Settings → AI API to set up your AI provider (Puter.js works automatically in your browser)."
+                type="warning"
+                showIcon
+                style={{ marginBottom: 8 }}
+              />
+            )}
+
+            <div style={{ flex: 1, overflowY: 'auto', marginBottom: 16 }}>
+              <List
+                dataSource={messages}
+                renderItem={(msg, index) => (
+                  <List.Item style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', border: 'none', padding: '8px 0' }}>
+                    <Card
+                      style={{
+                        maxWidth: '85%',
+                        background: msg.role === 'user' ? '#1890ff' : '#f5f5f5',
+                        color: msg.role === 'user' ? '#fff' : '#000',
+                        border: 'none',
+                        borderRadius: 12,
+                      }}
+                      bodyStyle={{ padding: '12px 16px' }}
+                    >
+                      <Text style={{ color: msg.role === 'user' ? '#fff' : '#000' }}>{msg.content}</Text>
+
+                      {msg.suggestions && msg.suggestions.length > 0 && (
+                        <div style={{ marginTop: 12 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                            <Text strong style={{ color: msg.role === 'user' ? '#fff' : '#000', fontSize: 12 }}>
+                              Suggested actions:
+                            </Text>
+                            <Button
+                              size="small"
+                              type={msg.role === 'user' ? 'primary' : 'default'}
+                              onClick={() => handleApplyAll(msg.suggestions!, index)}
+                            >
+                              Apply All
+                            </Button>
+                          </div>
+                          <List
+                            size="small"
+                            dataSource={msg.suggestions}
+                            style={{ marginTop: 8 }}
+                            renderItem={(suggestion) => (
+                              <List.Item style={{ padding: '4px 0', border: 'none' }}>
+                                <Card
+                                  size="small"
+                                  style={{
+                                    width: '100%',
+                                    background: msg.role === 'user' ? 'rgba(255,255,255,0.1)' : '#fff',
+                                    border: `1px solid ${msg.role === 'user' ? 'rgba(255,255,255,0.3)' : '#d9d9d9'}`,
+                                  }}
+                                  extra={
+                                    <Button
+                                      size="small"
+                                      type="primary"
+                                      onClick={() => handleApplySuggestion(suggestion, index)}
+                                    >
+                                      Apply
+                                    </Button>
+                                  }
+                                >
+                                  <Space>
+                                    {suggestion.type === 'metric' ? <CalculatorOutlined /> : <BarChartOutlined />}
+                                    <Text strong style={{ fontSize: 12 }}>{suggestion.title}</Text>
+                                    <Tag color={suggestion.type === 'metric' ? 'blue' : 'green'}>
+                                      {suggestion.type}
+                                    </Tag>
+                                  </Space>
+                                  <Text style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
+                                    {suggestion.description}
+                                  </Text>
+                                </Card>
+                              </List.Item>
+                            )}
+                          />
+                        </div>
+                      )}
+
+                      {msg.createdItems && msg.createdItems.length > 0 && (
+                        <div style={{ marginTop: 8 }}>
+                          {msg.createdItems.map((item, i) => (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                              {item.status === 'loading' && <LoadingOutlined style={{ fontSize: 12 }} />}
+                              {item.status === 'success' && <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 12 }} />}
+                              {item.status === 'error' && <Tag color="red">Failed</Tag>}
+                              <Text style={{ fontSize: 12 }}>{item.title}</Text>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </Card>
+                  </List.Item>
+                )}
+              />
+
+              {loading && (
+                <div style={{ textAlign: 'center', padding: 16 }}>
+                  <Spin />
+                  <Text type="secondary" style={{ marginLeft: 8 }}>AI is thinking...</Text>
+                </div>
+              )}
+            </div>
+          </>
+        )}
 
         <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 16 }}>
           <Space.Compact style={{ width: '100%' }}>
@@ -447,14 +567,14 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ open, onClose, datasetId, dat
                   handleSend()
                 }
               }}
-              placeholder="Ask about your data, create metrics or charts..."
+              placeholder={activeTab === 'query' ? 'Ask a question about your data...' : "Ask about your data, create metrics or charts..."}
               autoSize={{ minRows: 1, maxRows: 4 }}
               disabled={loading}
               style={{ resize: 'none' }}
             />
             <Button
               type="primary"
-              icon={<SendOutlined />}
+              icon={activeTab === 'query' ? <ThunderboltOutlined /> : <SendOutlined />}
               onClick={handleSend}
               loading={loading}
               disabled={!input.trim()}

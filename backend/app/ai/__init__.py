@@ -2,11 +2,13 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 from app.auth import get_current_user_id
 from app.models import Chart, Metric, Table, UserConfig, db
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 import requests
 import json
 import os
 import re
+import pandas as pd
+from groq import Groq
 
 ai_bp = Blueprint('ai', __name__)
 
@@ -382,3 +384,31 @@ def create_chart():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+
+@ai_bp.route('/query', methods=['POST'])
+@jwt_required()
+def ai_query():
+    """NL→SQL query via Groq: converts natural language to SQL and returns chartable data."""
+    body = request.get_json()
+    question = body.get('question', '').strip()
+    dataset_id = body.get('dataset_id')
+    table_name = body.get('table_name')
+
+    if not question:
+        return jsonify({'error': 'question is required'}), 400
+    if not dataset_id and not table_name:
+        return jsonify({'error': 'dataset_id or table_name is required'}), 400
+
+    tid = table_name or dataset_id
+
+    try:
+        from app.ai.groq_service import run_ai_query as groq_query
+        result = groq_query(question, tid, tid)
+        return jsonify(result)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except ImportError:
+        return jsonify({'error': 'Groq package not installed. Run: pip install groq'}), 500
+    except Exception as e:
+        return jsonify({'error': f'AI query failed: {str(e)}'}), 500

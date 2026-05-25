@@ -135,6 +135,12 @@ def upload_dataset():
         except UnicodeDecodeError:
             try:
                 df = pd.read_csv(filepath, encoding='latin1')
+            except UnicodeDecodeError:
+                try:
+                    df = pd.read_csv(filepath, encoding='cp1252')
+                except Exception:
+                    os.remove(filepath)
+                    return jsonify({'error': 'Could not read file. Try saving as UTF-8 CSV.'}), 400
             except Exception:
                 os.remove(filepath)
                 return jsonify({'error': 'Could not read file. Try saving as UTF-8 CSV.'}), 400
@@ -156,12 +162,46 @@ def upload_dataset():
         if filepath and os.path.exists(filepath):
             os.remove(filepath)
         
+        col_metadata = []
+        for col in df.columns:
+            dtype = str(df[col].dtype)
+            col_metadata.append({
+                'name': col,
+                'type': dtype,
+                'null_pct': round(df[col].isna().mean() * 100, 1),
+                'sample_values': df[col].dropna().head(3).tolist(),
+            })
+        
+        chart_recommendations = []
+        try:
+            api_key = os.environ.get('GROQ_API_KEY')
+            if api_key:
+                from groq import Groq
+                client = Groq(api_key=api_key)
+                numeric_cols = [c for c in col_metadata if any(t in c['type'].lower() for t in ['int', 'float', 'double', 'decimal'])]
+                cat_cols = [c for c in col_metadata if c['name'] not in {nc['name'] for nc in numeric_cols} and c['name'] != 'id']
+                if numeric_cols and cat_cols:
+                    prompt = f"""Given table '{table_name}' with columns: {json.dumps(col_metadata, indent=2)}
+Recommend 3 charts. Respond ONLY in JSON array:
+[{{"title":"...","chart_type":"bar|line|pie|scatter|area","x_column":"col","y_columns":["col"],"aggregation":"SUM|COUNT|AVG","reason":"..."}}]"""
+                    resp = client.chat.completions.create(
+                        model="llama-3.3-70b-versatile",
+                        messages=[{"role": "user", "content": prompt}],
+                        temperature=0.2, max_tokens=1024,
+                    )
+                    raw = re.sub(r"```json|```", "", resp.choices[0].message.content).strip()
+                    chart_recommendations = json.loads(raw) if raw.startswith('[') else []
+        except Exception:
+            pass
+        
         return jsonify({
             'message': 'Dataset uploaded successfully',
             'table_name': table_name,
             'rows': len(df),
             'columns': len(df.columns),
             'column_names': list(df.columns),
+            'column_metadata': col_metadata,
+            'chart_recommendations': chart_recommendations,
         })
     except Exception as e:
         if filepath and os.path.exists(filepath):

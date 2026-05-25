@@ -230,6 +230,11 @@ export const aiService = {
     const response = await api.post('/ai/chart', config)
     return response.data
   },
+
+  askQuestion: async (data: { question: string; dataset_id?: string; table_name?: string }) => {
+    const response = await api.post('/ai/query', data)
+    return response.data
+  },
 }
 
 export const metabaseService = {
