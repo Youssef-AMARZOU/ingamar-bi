@@ -1,10 +1,16 @@
-import React, { useState, useEffect } from 'react'
-import { Drawer, Button, Input, message, Typography, Space, Card, List, Spin, Tag, Alert, Segmented } from 'antd'
-import { SendOutlined, RobotOutlined, BarChartOutlined, CalculatorOutlined, CheckCircleOutlined, LoadingOutlined, ThunderboltOutlined, CodeOutlined } from '@ant-design/icons'
+import React, { useState, useEffect, useRef } from 'react'
+import { Drawer, Button, Input, message, Typography, Space, Card, List, Spin, Tag, Alert, Tooltip } from 'antd'
+import {
+  SendOutlined, RobotOutlined, BarChartOutlined, CalculatorOutlined,
+  CheckCircleOutlined, LoadingOutlined, ThunderboltOutlined, CodeOutlined,
+  UserOutlined, BulbOutlined, QuestionCircleOutlined, ClearOutlined,
+  MessageOutlined
+} from '@ant-design/icons'
 import { aiService, datasetService } from '../services'
 import api from '../services/api'
 import ReactECharts from 'echarts-for-react'
 import { buildChartOption } from '../utils/chartUtils'
+import { useThemeStore } from '../store/theme'
 
 const { Text } = Typography
 const { TextArea } = Input
@@ -19,50 +25,49 @@ interface AIAssistantProps {
 }
 
 interface ChatMessage {
+  id: string
   role: 'user' | 'assistant'
   content: string
+  type?: 'text' | 'chart' | 'sql' | 'insight' | 'error'
+  chartConfig?: {
+    chartType: string
+    xCol: string
+    metrics: { column: string; aggregation: string; label: string }[]
+    data: any[]
+    title?: string
+  }
+  sql?: string
   suggestions?: Array<{ type: 'metric' | 'chart'; title: string; description: string; config?: any }>
   createdItems?: Array<{ type: 'metric' | 'chart'; title: string; id?: number; status: 'success' | 'error' | 'loading' }>
 }
 
-const SYSTEM_PROMPT = `You are an EXPERT DATA ANALYST for a BI platform. Given a dataset schema with statistics and a user request, suggest the MOST INSIGHTFUL charts and metrics.
+const SYSTEM_PROMPT = `You are an EXPERT DATA ANALYST assistant for a BI platform. Your job is to help users understand their data through conversation.
 
-IMPORTANT: Respond ONLY with valid JSON. No markdown, no code fences.
+RESPONSE FORMAT: Respond with ONLY valid JSON. No markdown, no code fences.
 
-ANALYSIS FRAMEWORK:
-1. UNDERSTAND the data
-2. FIND PATTERNS: distributions, outliers, correlations, trends, segments
-3. SUGGEST 2-4 impactful visualizations and KPIs
-4. Every description must read like a chart LEGEND/CAPTION that helps users interpret the visualization
-
-CRITICAL: The "description" field will be shown as a legend/explanation below the chart. Write it like: "This bar chart compares... Group A has X, Group B has Y, suggesting that..."
-
-CHART TYPES & WHEN TO USE THEM:
-- bar: Compare categories, rankings
-- line: Trends over time
-- pie: Composition, proportions (<5 categories)
-- scatter: Correlation between 2 numeric variables
-- area: Volume trends, stacked comparisons
-- heatmap: Cross-tabulation, density
-- table: Detailed breakdowns
+CAPABILITIES:
+1. Answer questions about the data (find patterns, outliers, trends, distributions)
+2. Suggest insightful charts and metrics
+3. Explain what the data shows in plain language
+4. Recommend further analysis
 
 JSON format:
 {
-  "message": "Analysis summary",
+  "message": "Your conversational response explaining insights in plain language (2-4 sentences). Use specific numbers and values from the data.",
+  "type": "text",
   "suggestions": [
     {
       "type": "chart",
       "title": "Short insight-driven title",
-      "description": "Chart legend/explanation (1-3 sentences with specific values)",
+      "description": "What this chart shows (1-2 sentences with specific values)",
       "config": {
         "chart_name": "Title",
-        "viz_type": "bar",
+        "viz_type": "bar|line|pie|scatter|area|heatmap|table",
         "datasource_id": "<table_name>",
         "datasource_type": "table",
-        "description": "Same detailed legend text",
         "params": {
           "groupby": ["category_column"],
-          "metrics": [{"label":"Metric","expressionType":"SIMPLE","aggregate":"AVG","column":{"column_name":"numeric_col"}}],
+          "metrics": [{"label":"Metric","expressionType":"SIMPLE","aggregate":"SUM|AVG|COUNT","column":{"column_name":"numeric_col"}}],
           "rowLimit": 20
         }
       }
@@ -70,57 +75,65 @@ JSON format:
   ]
 }
 
+RESPONSE TYPE RULES:
+- For general questions/insights: type "text" with a helpful plain-language answer
+- For chart suggestions: include type "text" message + suggestions array
+- For questions about specific values: mention the actual numbers and what they mean
+- If the user asks "why" or "explain": give deeper analytical context
+
+CHART TYPE GUIDE:
+- bar: Compare categories, rankings
+- line: Trends over time
+- pie: Composition, proportions (<5 categories)
+- scatter: Correlation between 2 numeric variables
+- area: Volume trends, stacked comparisons
+- heatmap: Cross-tabulation, density
+
 CRITICAL RULES:
 - groupby MUST be an array of strings
 - metrics MUST be an array of objects
 - Use actual column names from the schema
-- description must be a readable chart caption/legend`
+- message must be conversational and insightful
+- Suggest 0-3 relevant charts per response`
 
 const AIAssistant: React.FC<AIAssistantProps> = ({ open, onClose, datasetId, datasetName, columns, onSuccess }) => {
-  const [activeTab, setActiveTab] = useState<'analyze' | 'query'>('analyze')
+  const { darkMode } = useThemeStore()
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
+      id: 'welcome',
       role: 'assistant',
-      content: `Hello! I'm your data assistant. I can help you create metrics and charts from your dataset${datasetName ? ` "${datasetName}"` : ''}. What would you like to analyze?`,
+      content: `Hi! I'm your data assistant. Ask me anything about your data${datasetName ? ` in "${datasetName}"` : ''} — I can answer questions, find insights, and suggest charts.`,
+      type: 'text',
     }
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [aiMode, setAiMode] = useState<'puter' | 'api_key' | 'none'>('none')
   const [checkingConfig, setCheckingConfig] = useState(true)
-  const [queryResult, setQueryResult] = useState<{
-    sql: string; data: Record<string,any>[]; columns: string[]
-    chart_type: string; x_column: string; y_columns: string[]
-    title: string; explanation: string; total_rows: number
-  } | null>(null)
-  const [queryError, setQueryError] = useState<string | null>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  const scrollToBottom = () => {
+    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+  }
 
   useEffect(() => {
-    if (open) {
-      checkAiConfig()
-    }
+    if (open) { checkAiConfig() }
+    scrollToBottom()
   }, [open])
+
+  useEffect(() => { scrollToBottom() }, [messages])
 
   const checkAiConfig = async () => {
     setCheckingConfig(true)
     try {
       const resp = await api.get('/auth/config', { params: { key: ['ai_api_key'] } })
-      if (resp.data.ai_api_key) {
-        setAiMode('api_key')
-      } else if (window.puter) {
-        setAiMode('puter')
-      } else {
-        setAiMode('none')
-      }
+      if (resp.data.ai_api_key) { setAiMode('api_key') }
+      else if (window.puter) { setAiMode('puter') }
+      else { setAiMode('none') }
     } catch {
-      if (window.puter) {
-        setAiMode('puter')
-      } else {
-        setAiMode('none')
-      }
-    } finally {
-      setCheckingConfig(false)
-    }
+      if (window.puter) { setAiMode('puter') }
+      else { setAiMode('none') }
+    } finally { setCheckingConfig(false) }
   }
 
   const getSchemaContext = async () => {
@@ -130,69 +143,41 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ open, onClose, datasetId, dat
       if (!preview || !preview.columns) return ''
       const cols = preview.columns.map((c: string) => c)
       const sample = preview.data || []
-      return JSON.stringify({
-        table_name: datasetId,
-        columns: cols,
-        sample_rows: sample.slice(0, 3),
-      }, null, 2)
+      return JSON.stringify({ table_name: datasetId, columns: cols, sample_rows: sample.slice(0, 3) }, null, 2)
     } catch {
       return JSON.stringify({ table_name: datasetId, columns: columns || [] })
     }
   }
 
   const handleSend = async () => {
-    if (!input.trim()) return
+    const q = input.trim()
+    if (!q) return
 
-    if (activeTab === 'query') {
-      setLoading(true)
-      setQueryResult(null)
-      setQueryError(null)
-      const q = input
-      setInput('')
-      try {
-        const res = await fetch('/api/v1/ai/query', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            question: q,
-            dataset_id: datasetId,
-            table_name: datasetName || datasetId,
-          }),
-        })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error)
-        setQueryResult(data)
-      } catch (e: any) {
-        setQueryError(e.message)
-      } finally {
-        setLoading(false)
-      }
-      return
-    }
-
-    const userMessage: ChatMessage = { role: 'user', content: input }
+    const userMessage: ChatMessage = { id: `u_${Date.now()}`, role: 'user', content: q }
     setMessages(prev => [...prev, userMessage])
     setInput('')
     setLoading(true)
 
     try {
+      const schemaText = await getSchemaContext()
+      const conversationContext = messages
+        .filter(m => m.role === 'user' || (m.role === 'assistant' && m.type === 'text'))
+        .slice(-6)
+        .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+        .join('\n')
+
+      let responseText = ''
+
       if (aiMode === 'api_key') {
         const response = await aiService.analyze({
-          message: input,
+          message: `${conversationContext}\n\nUser: ${q}\n\nDataset schema:\n${schemaText}\n\nAvailable columns: ${(columns || []).join(', ')}`,
           dataset_id: datasetId as any,
           columns: columns,
         })
-        const assistantMessage: ChatMessage = {
-          role: 'assistant',
-          content: response.message,
-          suggestions: response.suggestions,
-        }
-        setMessages(prev => [...prev, assistantMessage])
+        responseText = JSON.stringify(response)
       } else if (aiMode === 'puter' && window.puter) {
-        const schemaText = await getSchemaContext()
-        const userPrompt = `User request: ${input}\n\nDataset schema:\n${schemaText}\n\nAvailable columns: ${(columns || []).join(', ')}\n\nRespond with ONLY valid JSON in the specified format.`
+        const userPrompt = `Previous conversation:\n${conversationContext}\n\nUser question: ${q}\n\nDataset schema:\n${schemaText}\n\nAvailable columns: ${(columns || []).join(', ')}\n\nRespond with ONLY valid JSON.`
 
-        let responseText = ''
         try {
           responseText = await window.puter.ai.chat(
             `${SYSTEM_PROMPT}\n\n${userPrompt}`,
@@ -205,61 +190,48 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ open, onClose, datasetId, dat
               `${SYSTEM_PROMPT}\n\n${userPrompt}`,
               { model: 'qwen/qwen3.6-plus' }
             )
-          } else {
-            throw puterErr
-          }
+          } else { throw puterErr }
         }
-
-        let parsed
-        try {
-          parsed = JSON.parse(responseText)
-        } catch {
-          const jsonMatch = responseText.match(/\{[\s\S]*\}/)
-          if (jsonMatch) {
-            parsed = JSON.parse(jsonMatch[0])
-          } else {
-            throw new Error('Could not parse AI response as JSON')
-          }
-        }
-
-        const assistantMessage: ChatMessage = {
-          role: 'assistant',
-          content: parsed.message || "Here are my suggestions:",
-          suggestions: parsed.suggestions || [],
-        }
-        setMessages(prev => [...prev, assistantMessage])
       } else {
         setMessages(prev => [...prev, {
+          id: `a_${Date.now()}`,
           role: 'assistant',
-          content: 'To use the AI assistant, set up an API key in Settings (profile → Settings → AI API), or Puter.js will load automatically in your browser.',
-          suggestions: [],
+          content: 'Set up an AI API key in Settings → AI API, or Puter.js will load automatically in your browser.',
+          type: 'text',
         }])
+        setLoading(false)
+        return
       }
+
+      let parsed: any
+      try { parsed = JSON.parse(responseText) }
+      catch {
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/)
+        if (jsonMatch) { parsed = JSON.parse(jsonMatch[0]) }
+        else { throw new Error('Could not parse AI response') }
+      }
+
+      const assistantMessage: ChatMessage = {
+        id: `a_${Date.now()}`,
+        role: 'assistant',
+        content: parsed.message || "Here's what I found:",
+        type: parsed.type || 'text',
+        suggestions: parsed.suggestions || [],
+      }
+      setMessages(prev => [...prev, assistantMessage])
+
     } catch (error: any) {
       const errMsg = error?.message || 'Failed to get AI response'
       setMessages(prev => [...prev, {
+        id: `e_${Date.now()}`,
         role: 'assistant',
-        content: `Error: ${errMsg}. Check your AI configuration in Settings.`,
-        suggestions: [],
+        content: errMsg,
+        type: 'error',
       }])
     } finally {
       setLoading(false)
     }
   }
-
-  const chartOption = queryResult
-    ? buildChartOption({
-        chartType: queryResult.chart_type,
-        xCol: queryResult.x_column,
-        metrics: queryResult.y_columns.map(c => ({
-          column: c,
-          aggregation: 'SUM',
-          label: c,
-        })),
-        data: queryResult.data,
-        title: queryResult.title,
-      })
-    : null
 
   const handleApplySuggestion = async (suggestion: any, msgIndex: number) => {
     setMessages(prev => {
@@ -272,12 +244,9 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ open, onClose, datasetId, dat
     })
 
     try {
-      let result
-      if (suggestion.type === 'metric') {
-        result = await aiService.createMetric(suggestion.config)
-      } else {
-        result = await aiService.createChart(suggestion.config)
-      }
+      const result = suggestion.type === 'metric'
+        ? await aiService.createMetric(suggestion.config)
+        : await aiService.createChart(suggestion.config)
 
       setMessages(prev => {
         const updated = [...prev]
@@ -285,16 +254,15 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ open, onClose, datasetId, dat
         msg.createdItems = msg.createdItems?.map(item =>
           item.title === suggestion.title ? { ...item, status: 'success' as const, id: result?.id } : item
         )
-        msg.content = `Created: ${suggestion.title}`
         updated[msgIndex] = msg
         return updated
       })
 
-      message.success(`${suggestion.type === 'metric' ? 'Metric' : 'Chart'} "${suggestion.title}" created!`)
+      message.success(`"${suggestion.title}" created!`)
       onSuccess?.()
     } catch (error) {
       const err: any = error
-      const errMsg = err?.response?.data?.error || err?.message || 'Failed to create'
+      const errMsg = err?.response?.data?.error || err?.message || 'Failed'
       setMessages(prev => {
         const updated = [...prev]
         const msg = { ...updated[msgIndex] }
@@ -321,16 +289,10 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ open, onClose, datasetId, dat
     let successCount = 0
     for (const suggestion of suggestions) {
       try {
-        if (suggestion.type === 'metric') {
-          await aiService.createMetric(suggestion.config)
-        } else {
-          await aiService.createChart(suggestion.config)
-        }
+        if (suggestion.type === 'metric') { await aiService.createMetric(suggestion.config) }
+        else { await aiService.createChart(suggestion.config) }
         successCount++
-      } catch (e) {
-        const err: any = e
-        console.error('Create failed:', err?.response?.data || err)
-      }
+      } catch (e) { console.error('Create failed:', e) }
     }
 
     setMessages(prev => {
@@ -341,245 +303,245 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ open, onClose, datasetId, dat
       updated[msgIndex] = msg
       return updated
     })
-
-    message.success(`${successCount} item${successCount !== 1 ? 's' : ''} created!`)
+    message.success(`${successCount} created!`)
     onSuccess?.()
   }
+
+  const clearChat = () => {
+    setMessages([{
+      id: 'welcome',
+      role: 'assistant',
+      content: `Hi! I'm your data assistant. Ask me anything about your data${datasetName ? ` in "${datasetName}"` : ''}!`,
+      type: 'text',
+    }])
+  }
+
+  const suggestionQuestions = [
+    'What insights can you find in this data?',
+    'Show me the top values and trends',
+    'Are there any outliers or anomalies?',
+    'What are the key patterns in this dataset?',
+    'Create a chart showing the main metrics',
+  ]
 
   return (
     <Drawer
       title={
         <Space>
-          <RobotOutlined />
+          <RobotOutlined style={{ color: '#1890ff' }} />
           <span>AI Data Assistant</span>
           {aiMode === 'puter' && <Tag color="green" style={{ fontSize: 10 }}>Puter</Tag>}
           {aiMode === 'api_key' && <Tag color="blue" style={{ fontSize: 10 }}>API</Tag>}
         </Space>
       }
       placement="right"
-      width={480}
+      width={520}
       onClose={onClose}
       open={open}
+      extra={<Button size="small" icon={<ClearOutlined />} onClick={clearChat} type="text" title="Clear chat" />}
     >
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-        <Segmented
-          value={activeTab}
-          onChange={(v) => setActiveTab(v as 'analyze' | 'query')}
-          options={[
-            { label: <><RobotOutlined /> Analyze</>, value: 'analyze' },
-            { label: <><ThunderboltOutlined /> Quick Query</>, value: 'query' },
-          ]}
-          style={{ marginBottom: 12, alignSelf: 'center' }}
-          block
-        />
-
         {checkingConfig && (
-          <div style={{ textAlign: 'center', padding: 16 }}>
+          <div style={{ textAlign: 'center', padding: 8 }}>
             <Spin size="small" />
-            <Text type="secondary" style={{ marginLeft: 8 }}>Checking AI config...</Text>
+            <Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>Checking AI...</Text>
           </div>
         )}
 
-        {activeTab === 'query' ? (
-          <div style={{ flex: 1, overflowY: 'auto', marginBottom: 16 }}>
-            <div style={{ marginBottom: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {[
-                'Show total sales by category',
-                'Top 10 products by revenue',
-                'Sales trend over time',
-                'Average value by region',
-              ].map(s => (
-                <Tag
-                  key={s}
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => { setInput(s); }}
-                >
-                  {s}
-                </Tag>
-              ))}
-            </div>
+        {aiMode === 'none' && !checkingConfig && (
+          <Alert
+            message="AI not configured"
+            description="Go to Settings → AI API to set up your AI provider. Puter.js works automatically in your browser."
+            type="warning"
+            showIcon
+            closable
+            style={{ marginBottom: 8, fontSize: 12 }}
+          />
+        )}
 
-            {queryResult && (
-              <Card title={queryResult.title} size="small" style={{ marginBottom: 12 }}>
-                <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
-                  {queryResult.explanation}
-                </Text>
-                <Text style={{ fontSize: 12, color: '#888' }}>
-                  {queryResult.total_rows} rows · {queryResult.columns.length} columns
-                </Text>
-                {chartOption && (
-                  <ReactECharts option={chartOption} style={{ height: 300, marginTop: 8 }} />
-                )}
-                <details style={{ marginTop: 8 }}>
-                  <summary style={{ cursor: 'pointer', color: '#888', fontSize: 12 }}>
-                    <CodeOutlined /> View SQL
-                  </summary>
-                  <pre style={{
-                    background: '#1e1e1e', color: '#d4d4d4',
-                    padding: 12, borderRadius: 6, marginTop: 8,
-                    fontSize: 12, overflow: 'auto', maxHeight: 200,
+        {/* Quick suggestion chips */}
+        {messages.length <= 1 && (
+          <div style={{ marginBottom: 12, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {suggestionQuestions.map(s => (
+              <Tag
+                key={s}
+                style={{ cursor: 'pointer', padding: '2px 8px', fontSize: 11 }}
+                onClick={() => setInput(s)}
+              >
+                <BulbOutlined /> {s}
+              </Tag>
+            ))}
+          </div>
+        )}
+
+        {/* Messages */}
+        <div style={{ flex: 1, overflowY: 'auto', marginBottom: 16 }}>
+          {messages.map((msg, index) => (
+            <div key={msg.id} style={{ marginBottom: 16 }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                gap: 8,
+                alignItems: 'flex-start',
+              }}>
+                {msg.role === 'assistant' && (
+                  <div style={{
+                    width: 28, height: 28, borderRadius: 14,
+                    background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0,
                   }}>
-                    {queryResult.sql}
-                  </pre>
-                </details>
-              </Card>
-            )}
-
-            {queryError && (
-              <Alert type="error" message={queryError} showIcon style={{ marginBottom: 12 }} />
-            )}
-
-            {loading && (
-              <div style={{ textAlign: 'center', padding: 24 }}>
-                <Spin tip="Generating query..." />
-              </div>
-            )}
-          </div>
-        ) : (
-          <>
-            {aiMode === 'puter' && !checkingConfig && (
-              <Alert
-                message="Using Puter.js (browser AI)"
-                description="AI runs in your browser via Puter.js — free, no API key needed. You may be asked to sign in to Puter."
-                type="info"
-                showIcon
-                closable
-                style={{ marginBottom: 8 }}
-              />
-            )}
-
-            {aiMode === 'none' && !checkingConfig && (
-              <Alert
-                message="AI not configured"
-                description="Go to Settings → AI API to set up your AI provider (Puter.js works automatically in your browser)."
-                type="warning"
-                showIcon
-                style={{ marginBottom: 8 }}
-              />
-            )}
-
-            <div style={{ flex: 1, overflowY: 'auto', marginBottom: 16 }}>
-              <List
-                dataSource={messages}
-                renderItem={(msg, index) => (
-                  <List.Item style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', border: 'none', padding: '8px 0' }}>
-                    <Card
-                      style={{
-                        maxWidth: '85%',
-                        background: msg.role === 'user' ? '#1890ff' : '#f5f5f5',
-                        color: msg.role === 'user' ? '#fff' : '#000',
-                        border: 'none',
-                        borderRadius: 12,
-                      }}
-                      bodyStyle={{ padding: '12px 16px' }}
-                    >
-                      <Text style={{ color: msg.role === 'user' ? '#fff' : '#000' }}>{msg.content}</Text>
-
-                      {msg.suggestions && msg.suggestions.length > 0 && (
-                        <div style={{ marginTop: 12 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                            <Text strong style={{ color: msg.role === 'user' ? '#fff' : '#000', fontSize: 12 }}>
-                              Suggested actions:
-                            </Text>
-                            <Button
-                              size="small"
-                              type={msg.role === 'user' ? 'primary' : 'default'}
-                              onClick={() => handleApplyAll(msg.suggestions!, index)}
-                            >
-                              Apply All
-                            </Button>
-                          </div>
-                          <List
-                            size="small"
-                            dataSource={msg.suggestions}
-                            style={{ marginTop: 8 }}
-                            renderItem={(suggestion) => (
-                              <List.Item style={{ padding: '4px 0', border: 'none' }}>
-                                <Card
-                                  size="small"
-                                  style={{
-                                    width: '100%',
-                                    background: msg.role === 'user' ? 'rgba(255,255,255,0.1)' : '#fff',
-                                    border: `1px solid ${msg.role === 'user' ? 'rgba(255,255,255,0.3)' : '#d9d9d9'}`,
-                                  }}
-                                  extra={
-                                    <Button
-                                      size="small"
-                                      type="primary"
-                                      onClick={() => handleApplySuggestion(suggestion, index)}
-                                    >
-                                      Apply
-                                    </Button>
-                                  }
-                                >
-                                  <Space>
-                                    {suggestion.type === 'metric' ? <CalculatorOutlined /> : <BarChartOutlined />}
-                                    <Text strong style={{ fontSize: 12 }}>{suggestion.title}</Text>
-                                    <Tag color={suggestion.type === 'metric' ? 'blue' : 'green'}>
-                                      {suggestion.type}
-                                    </Tag>
-                                  </Space>
-                                  <Text style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
-                                    {suggestion.description}
-                                  </Text>
-                                </Card>
-                              </List.Item>
-                            )}
-                          />
-                        </div>
-                      )}
-
-                      {msg.createdItems && msg.createdItems.length > 0 && (
-                        <div style={{ marginTop: 8 }}>
-                          {msg.createdItems.map((item, i) => (
-                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                              {item.status === 'loading' && <LoadingOutlined style={{ fontSize: 12 }} />}
-                              {item.status === 'success' && <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 12 }} />}
-                              {item.status === 'error' && <Tag color="red">Failed</Tag>}
-                              <Text style={{ fontSize: 12 }}>{item.title}</Text>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </Card>
-                  </List.Item>
+                    <RobotOutlined style={{ color: '#fff', fontSize: 13 }} />
+                  </div>
                 )}
-              />
+                <div style={{
+                  maxWidth: '80%',
+                  borderRadius: 12,
+                  padding: '10px 14px',
+                  background: msg.role === 'user'
+                    ? '#1890ff'
+                    : darkMode ? '#2d2d2d' : '#f0f2f5',
+                  color: msg.role === 'user' ? '#fff' : (darkMode ? '#e5e7eb' : '#374151'),
+                  border: msg.role === 'assistant' && !darkMode ? '1px solid #e5e7eb' : 'none',
+                }}>
+                  {msg.type === 'error' ? (
+                    <Text style={{ color: '#ff4d4f', fontSize: 13 }}>{msg.content}</Text>
+                  ) : (
+                    <Text style={{ color: msg.role === 'user' ? '#fff' : undefined, fontSize: 13, whiteSpace: 'pre-wrap' }}>
+                      {msg.content}
+                    </Text>
+                  )}
 
-              {loading && (
-                <div style={{ textAlign: 'center', padding: 16 }}>
-                  <Spin />
-                  <Text type="secondary" style={{ marginLeft: 8 }}>AI is thinking...</Text>
+                  {/* SQL block */}
+                  {msg.sql && (
+                    <details style={{ marginTop: 8 }}>
+                      <summary style={{ cursor: 'pointer', fontSize: 11, color: msg.role === 'user' ? 'rgba(255,255,255,0.7)' : '#888' }}>
+                        <CodeOutlined /> View SQL
+                      </summary>
+                      <pre style={{
+                        background: '#1e1e1e', color: '#d4d4d4',
+                        padding: 8, borderRadius: 6, marginTop: 6,
+                        fontSize: 11, overflow: 'auto', maxHeight: 150,
+                      }}>
+                        {msg.sql}
+                      </pre>
+                    </details>
+                  )}
+
+                  {/* Suggestions */}
+                  {msg.suggestions && msg.suggestions.length > 0 && (
+                    <div style={{ marginTop: 10 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <Text strong style={{ fontSize: 11, color: msg.role === 'user' ? '#fff' : '#666' }}>
+                          Suggested actions:
+                        </Text>
+                        <Button size="small" type={msg.role === 'user' ? 'primary' : 'default'}
+                          onClick={() => handleApplyAll(msg.suggestions!, index)}
+                          style={{ fontSize: 10, height: 22 }}>
+                          Apply All
+                        </Button>
+                      </div>
+                      {msg.suggestions.map((s, i) => (
+                        <div key={i} style={{
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                          padding: '6px 8px', marginBottom: 4,
+                          background: msg.role === 'user' ? 'rgba(255,255,255,0.1)' : (darkMode ? '#3d3d3d' : '#fff'),
+                          borderRadius: 6, border: '1px solid ' + (darkMode ? '#4b5563' : '#e5e7eb'),
+                        }}>
+                          <Space size={4}>
+                            {s.type === 'metric' ? <CalculatorOutlined style={{ fontSize: 12 }} /> : <BarChartOutlined style={{ fontSize: 12 }} />}
+                            <div>
+                              <Text style={{ fontSize: 11, fontWeight: 500, color: msg.role === 'user' ? '#fff' : undefined }}>{s.title}</Text>
+                              <div style={{ fontSize: 10, color: msg.role === 'user' ? 'rgba(255,255,255,0.7)' : '#888' }}>{s.description}</div>
+                            </div>
+                          </Space>
+                          <Button size="small" type="primary" style={{ fontSize: 10, height: 22 }}
+                            onClick={() => handleApplySuggestion(s, index)}>
+                            Apply
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Created items status */}
+                  {msg.createdItems && msg.createdItems.length > 0 && (
+                    <div style={{ marginTop: 8 }}>
+                      {msg.createdItems.map((item, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                          {item.status === 'loading' && <LoadingOutlined style={{ fontSize: 11 }} />}
+                          {item.status === 'success' && <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 11 }} />}
+                          {item.status === 'error' && <Tag color="red" style={{ fontSize: 9 }}>Failed</Tag>}
+                          <Text style={{ fontSize: 11, color: msg.role === 'user' ? '#fff' : undefined }}>{item.title}</Text>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
+                {msg.role === 'user' && (
+                  <div style={{
+                    width: 28, height: 28, borderRadius: 14,
+                    background: '#667eea',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0,
+                  }}>
+                    <UserOutlined style={{ color: '#fff', fontSize: 13 }} />
+                  </div>
+                )}
+              </div>
             </div>
-          </>
-        )}
+          ))}
+          {loading && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <div style={{
+                width: 28, height: 28, borderRadius: 14,
+                background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <RobotOutlined style={{ color: '#fff', fontSize: 13 }} />
+              </div>
+              <div style={{
+                padding: '8px 14px', borderRadius: 12,
+                background: darkMode ? '#2d2d2d' : '#f0f2f5',
+                border: darkMode ? 'none' : '1px solid #e5e7eb',
+              }}>
+                <Space>
+                  <Spin size="small" />
+                  <Text type="secondary" style={{ fontSize: 12 }}>Thinking...</Text>
+                </Space>
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
 
-        <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 16 }}>
+        {/* Input */}
+        <div style={{ borderTop: '1px solid ' + (darkMode ? '#303030' : '#f0f0f0'), paddingTop: 12 }}>
           <Space.Compact style={{ width: '100%' }}>
             <TextArea
               value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onPressEnter={(e) => {
-                if (!e.shiftKey) {
-                  e.preventDefault()
-                  handleSend()
-                }
+              onChange={e => setInput(e.target.value)}
+              onPressEnter={e => {
+                if (!e.shiftKey) { e.preventDefault(); handleSend() }
               }}
-              placeholder={activeTab === 'query' ? 'Ask a question about your data...' : "Ask about your data, create metrics or charts..."}
+              placeholder="Ask about your data..."
               autoSize={{ minRows: 1, maxRows: 4 }}
-              disabled={loading}
-              style={{ resize: 'none' }}
+              disabled={loading || checkingConfig}
+              style={{ resize: 'none', fontSize: 13 }}
             />
             <Button
               type="primary"
-              icon={activeTab === 'query' ? <ThunderboltOutlined /> : <SendOutlined />}
+              icon={<SendOutlined />}
               onClick={handleSend}
               loading={loading}
-              disabled={!input.trim()}
+              disabled={!input.trim() || checkingConfig}
             />
           </Space.Compact>
+          <div style={{ textAlign: 'center', marginTop: 6 }}>
+            <Text style={{ fontSize: 10, color: '#888' }}>
+              <MessageOutlined /> Ask questions, get insights, create charts
+            </Text>
+          </div>
         </div>
       </div>
     </Drawer>

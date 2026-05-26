@@ -4,7 +4,6 @@
   box-sizing: border-box;
 }
 
-/* Prevent scrollbar jump - always show vertical scrollbar */
 html {
   overflow-y: scroll;
 }
@@ -17,6 +16,30 @@ body {
 
 #root {
   min-height: 100vh;
+}
+
+/* --- Grafana-inspired design system --- */
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.15);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0,0,0,0.25);
+}
+html.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+}
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.25);
 }
 
 /* Force Ant Design Sider to NEVER animate width */
@@ -33,7 +56,7 @@ body {
   width: 240px !important;
 }
 
-/* Metabase-style cards */
+/* Card styles */
 .mb-card {
   background: #fff;
   border-radius: 8px;
@@ -45,12 +68,42 @@ body {
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 
-/* Metabase primary button */
+html.dark .mb-card {
+  background: #1f1f1f;
+  border-color: #303030;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+/* Ant Design Card refinements */
+.ant-card {
+  border-radius: 8px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important;
+  border: 1px solid #e8eaed !important;
+}
+html.dark .ant-card {
+  border-color: #303030 !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;
+}
+.ant-card-small > .ant-card-head {
+  min-height: 36px !important;
+  padding: 0 12px !important;
+  font-size: 13px !important;
+  border-bottom: 1px solid #f0f0f0 !important;
+}
+html.dark .ant-card-small > .ant-card-head {
+  border-bottom-color: #303030 !important;
+}
+
+/* Button refinements */
 .ant-btn-primary {
   box-shadow: none !important;
 }
+.ant-btn {
+  border-radius: 6px !important;
+  font-size: 13px !important;
+}
 
-/* Clean header */
+/* Header */
 .ant-layout-header {
   background: #fff !important;
   border-bottom: 1px solid #e8eaed !important;
@@ -58,27 +111,101 @@ body {
   line-height: 56px !important;
   padding: 0 24px !important;
 }
+html.dark .ant-layout-header {
+  background: #1f1f1f !important;
+  border-bottom-color: #303030 !important;
+}
 
 /* Content area */
 .ant-layout-content {
   background: #f5f7fa !important;
 }
+html.dark .ant-layout-content {
+  background: #141414 !important;
+}
 
-/* Remove antd table border noise */
+/* Table refinements */
 .ant-table-wrapper .ant-table-thead > tr > th {
   background: #fafbfc !important;
   border-bottom: 1px solid #e8eaed !important;
   font-weight: 600 !important;
-  font-size: 12px !important;
+  font-size: 11px !important;
   text-transform: uppercase !important;
   letter-spacing: 0.5px !important;
   color: #6b7280 !important;
   padding: 8px 16px !important;
 }
+html.dark .ant-table-wrapper .ant-table-thead > tr > th {
+  background: #2d2d2d !important;
+  border-bottom-color: #4b5563 !important;
+  color: #9ca3af !important;
+}
 .ant-table-wrapper .ant-table-tbody > tr > td {
   padding: 10px 16px !important;
   border-bottom: 1px solid #f0f0f0 !important;
 }
+html.dark .ant-table-wrapper .ant-table-tbody > tr > td {
+  border-bottom-color: #303030 !important;
+}
 .ant-table-wrapper .ant-table-tbody > tr:hover > td {
   background: #f9fafb !important;
+}
+html.dark .ant-table-wrapper .ant-table-tbody > tr:hover > td {
+  background: #2d2d2d !important;
+}
+
+/* Tag refinements */
+.ant-tag {
+  border-radius: 4px !important;
+  font-size: 11px !important;
+  line-height: 20px !important;
+  padding: 0 6px !important;
+}
+
+/* Select refinements */
+.ant-select {
+  border-radius: 6px !important;
+}
+
+/* Input refinements */
+.ant-input {
+  border-radius: 6px !important;
+}
+
+/* Modal refinements */
+.ant-modal-content {
+  border-radius: 12px !important;
+}
+.ant-modal-header {
+  border-radius: 12px 12px 0 0 !important;
+}
+
+/* Tooltip refinements */
+.ant-tooltip-inner {
+  border-radius: 6px !important;
+  font-size: 12px !important;
+}
+
+/* Tabs refinements */
+.ant-tabs-tab {
+  font-size: 13px !important;
+  padding: 8px 16px !important;
+}
+
+/* Alert refinements */
+.ant-alert {
+  border-radius: 8px !important;
+}
+
+/* Segmented refinements */
+.ant-segmented {
+  border-radius: 8px !important;
+}
+
+/* Drawer refinements */
+.ant-drawer-content-wrapper {
+  border-radius: 12px 0 0 12px !important;
+}
+.ant-drawer-header {
+  border-radius: 12px 0 0 0 !important;
 }

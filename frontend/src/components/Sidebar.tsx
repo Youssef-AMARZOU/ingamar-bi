@@ -9,6 +9,7 @@ import {
   SettingOutlined,
   FileTextOutlined,
   ExperimentOutlined,
+  NodeIndexOutlined,
 } from '@ant-design/icons'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useThemeStore } from '../store/theme'
@@ -22,6 +23,7 @@ const menuItems = [
   { key: '/saved-queries', icon: <FileTextOutlined />, label: 'Saved Queries' },
   { key: '/datasets', icon: <DatabaseOutlined />, label: 'Datasets' },
   { key: '/ml', icon: <ExperimentOutlined />, label: 'ML Studio' },
+  { key: '/dl', icon: <NodeIndexOutlined />, label: 'Deep Learning' },
   { key: '/databases', icon: <DatabaseOutlined />, label: 'Databases' },
   { key: '/contributions', icon: <FileTextOutlined />, label: 'Contributions' },
   { key: '/users', icon: <TeamOutlined />, label: 'Users' },

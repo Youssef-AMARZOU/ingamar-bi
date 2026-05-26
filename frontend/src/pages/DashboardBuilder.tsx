@@ -1,23 +1,24 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   Button, Card, Space, Modal, Form, Input, message, Spin, Empty,
-  Select, Typography, Tag, Popconfirm, Tooltip, Badge, Divider
+  Select, Typography, Tag, Popconfirm, Tooltip, Badge
 } from 'antd'
 import {
   PlusOutlined, SaveOutlined, ArrowLeftOutlined, DeleteOutlined,
   BarChartOutlined, LineChartOutlined, PieChartOutlined,
   AreaChartOutlined, DotChartOutlined, TableOutlined,
   FullscreenOutlined, FullscreenExitOutlined, ReloadOutlined,
-  EditOutlined, RocketOutlined
+  EditOutlined, ThunderboltOutlined
 } from '@ant-design/icons'
 import { ResponsiveGridLayout as _RGL } from 'react-grid-layout'
 const ResponsiveGridLayout = _RGL as any
 import ReactECharts from 'echarts-for-react'
-import { dashboardService, chartService } from '../services'
+import { dashboardService, chartService, datasetService } from '../services'
 import api from '../services/api'
 import { useThemeStore } from '../store/theme'
 import { buildChartOption, TABLEAU_COLORS, formatNumber } from '../utils/chartUtils'
+import InlineChartCreator from '../components/InlineChartCreator'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 
@@ -47,10 +48,13 @@ const DashboardBuilder: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false)
   const [editTitle, setEditTitle] = useState(false)
   const [titleValue, setTitleValue] = useState('')
+  const [inlineCreatorOpen, setInlineCreatorOpen] = useState(false)
+  const [datasets, setDatasets] = useState<any[]>([])
   const { darkMode } = useThemeStore()
 
   useEffect(() => {
     if (id) fetchDashboard()
+    fetchDatasets()
   }, [id])
 
   const fetchDashboard = async () => {
@@ -78,6 +82,13 @@ const DashboardBuilder: React.FC = () => {
     } catch (error: any) {
       message.error('Failed to load dashboard')
     } finally { setLoading(false) }
+  }
+
+  const fetchDatasets = async () => {
+    try {
+      const data = await datasetService.list()
+      setDatasets(data.datasets || [])
+    } catch (e) { console.error(e) }
   }
 
   const fetchAvailableCharts = async () => {
@@ -256,8 +267,10 @@ const DashboardBuilder: React.FC = () => {
           <Tooltip title="Refresh data">
             <Button icon={<ReloadOutlined />} onClick={fetchDashboard} loading={refreshing} />
           </Tooltip>
-          <Tooltip title="Create new chart">
-            <Button icon={<RocketOutlined />} onClick={() => navigate('/charts/new')}>New Chart</Button>
+          <Tooltip title="Create chart from dataset (inline)">
+            <Button type="primary" ghost icon={<ThunderboltOutlined />} onClick={() => setInlineCreatorOpen(true)}>
+              Quick Chart
+            </Button>
           </Tooltip>
           <Tooltip title="Add existing chart">
             <Button icon={<PlusOutlined />} onClick={() => { fetchAvailableCharts(); setAddModalOpen(true) }} />
@@ -354,6 +367,13 @@ const DashboardBuilder: React.FC = () => {
           </Space>
         )}
       </Modal>
+
+      <InlineChartCreator
+        open={inlineCreatorOpen}
+        onClose={() => setInlineCreatorOpen(false)}
+        dashboardId={id!}
+        onChartAdded={fetchDashboard}
+      />
     </div>
   )
 }

@@ -10,17 +10,29 @@
     (function() {
       try {
         var theme = JSON.parse(localStorage.getItem('ingamar-theme') || '{}');
-        if (theme.state && theme.state.darkMode) {
+        var isDark = theme.state && theme.state.darkMode;
+        if (isDark) {
           document.documentElement.classList.add('dark');
+          document.documentElement.classList.remove('light');
+        } else {
+          document.documentElement.classList.add('light');
+          document.documentElement.classList.remove('dark');
         }
-      } catch(e) {}
+      } catch(e) {
+        // Default to light mode on error
+        document.documentElement.classList.add('light');
+        document.documentElement.classList.remove('dark');
+      }
     })();
   </script>
   <style>
-    html.dark body { background-color: #141414; }
+    /* Prevent flash of unstyled content */
+    html { opacity: 0; }
+    html.dark body { background-color: #141414; color: #e5e7eb; }
+    html.light body { background-color: #f5f7fa; color: #374151; }
   </style>
-  <script type="module" crossorigin src="/assets/index-B3vrhJTb.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-BONgX_rg.css">
+  <script type="module" crossorigin src="/assets/index-PrVxkbes.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-Bisi3yQN.css">
 </head>
 <body>
   <div id="root"></div>
