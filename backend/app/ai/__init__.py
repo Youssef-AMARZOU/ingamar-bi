@@ -343,11 +343,36 @@ def normalize_chart_config(data):
 def create_chart():
     current_user_id = get_current_user_id()
     data = request.get_json()
+
+    if not data:
+        return jsonify({'error': 'Request body is required'}), 400
+
+    chart_name = data.get('chart_name')
+    datasource_id = data.get('datasource_id')
+
+    if not chart_name:
+        return jsonify({'error': 'chart_name is required'}), 400
+
+    table_name = data.get('table_name') or datasource_id
+    if table_name:
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+        if table_name not in inspector.get_table_names():
+            return jsonify({
+                'error': f"Table '{table_name}' not found",
+                'suggestion': 'Use /api/v1/datasets to see available datasets.'
+            }), 422
+
+        row_count = int(pd.read_sql(f'SELECT COUNT(*) as cnt FROM "{table_name}"', db.engine).iloc[0]['cnt'])
+        if row_count == 0:
+            return jsonify({
+                'error': f"Table '{table_name}' is empty. Upload data first.",
+                'suggestion': 'Use /api/v1/datasets to see available datasets with data.'
+            }), 422
+
     data = normalize_chart_config(data)
 
     try:
-        datasource_id = data.get('datasource_id')
-
         if datasource_id and isinstance(datasource_id, str):
             table = Table.query.filter_by(table_name=datasource_id).first()
             if not table:
@@ -361,7 +386,7 @@ def create_chart():
             datasource_id = table.id
 
         chart = Chart(
-            chart_name=data['chart_name'],
+            chart_name=chart_name,
             viz_type=data['viz_type'],
             params=data.get('params', {}),
             query_context=data.get('query_context'),
@@ -381,9 +406,11 @@ def create_chart():
             'chart_name': chart.chart_name,
             'viz_type': chart.viz_type,
         }), 201
+    except KeyError as e:
+        return jsonify({'error': f'Missing required field: {e}'}), 400
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': str(e), 'type': type(e).__name__}), 500
 
 
 @ai_bp.route('/query', methods=['POST'])

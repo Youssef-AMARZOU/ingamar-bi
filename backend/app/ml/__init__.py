@@ -60,6 +60,14 @@ def train_model():
     if not table_name or not target:
         return jsonify({'error': 'dataset and target are required'}), 400
 
+    engine = get_db_engine()
+    row_count = int(pd.read_sql(f'SELECT COUNT(*) as cnt FROM "{table_name}"', engine).iloc[0]['cnt'])
+    if row_count < 10:
+        return jsonify({
+            'error': f"Not enough data to train. Table '{table_name}' has {row_count} rows. Need at least 10.",
+            'suggestion': 'Upload a dataset first or use the retail_sample dataset.'
+        }), 422
+
     try:
         from sklearn.model_selection import train_test_split
         from sklearn.preprocessing import StandardScaler, LabelEncoder
@@ -402,7 +410,14 @@ def correlation_analysis():
     if numeric_df.empty:
         return jsonify({'error': 'No numeric columns found'}), 400
 
-    corr_matrix = numeric_df.corr()
+    if numeric_df.shape[1] < 2:
+        all_numeric = list(df.select_dtypes(include=[np.number]).columns)
+        return jsonify({
+            'error': 'Not enough numeric columns with variance to compute correlation.',
+            'columns_found': all_numeric
+        }), 422
+
+    corr_matrix = numeric_df.corr().fillna(0)
     columns_list = corr_matrix.columns.tolist()
     corr_data = []
     for i, col1 in enumerate(columns_list):
@@ -489,4 +504,14 @@ def feature_importance():
     return jsonify({
         'task': 'classification' if is_classification else 'regression',
         'feature_importance': feature_imp,
+    })
+
+
+@ml_bp.route('/models', methods=['GET'])
+@jwt_required()
+def list_ml_models():
+    return jsonify({
+        'models': [],
+        'count': 0,
+        'message': 'No models trained yet. Use /api/v1/ml/train to train one.'
     })

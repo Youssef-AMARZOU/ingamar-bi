@@ -58,6 +58,12 @@ def create_app(config_name=None):
 
     from app.dl import dl_bp
     app.register_blueprint(dl_bp, url_prefix='/api/v1/dl')
+
+    from app.api.mcp_routes import mcp_bp
+    app.register_blueprint(mcp_bp, url_prefix='/api/v1')
+
+    from app.api.anomaly_routes import anomaly_bp
+    app.register_blueprint(anomaly_bp, url_prefix='/api/v1')
     
     # Serve frontend SPA (catch-all for non-API routes)
     @app.route('/', defaults={'path': ''})
@@ -75,5 +81,8 @@ def create_app(config_name=None):
         from app.roles import init_roles, seed_default_user
         init_roles()
         seed_default_user()
+
+        from app.seeds.seed_data import seed_if_empty
+        seed_if_empty()
     
     return app
