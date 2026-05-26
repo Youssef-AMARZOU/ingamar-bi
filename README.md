@@ -1,3 +1,13 @@
+---
+title: INGAMAR BI
+emoji: 📊
+colorFrom: indigo
+colorTo: blue
+sdk: docker
+pinned: false
+app_port: 7860
+---
+
 # INGAMAR - Data Visualization & Exploration Platform
 
 **By AMARZOU**
