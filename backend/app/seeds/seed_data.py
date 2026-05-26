@@ -7,7 +7,7 @@ from app import db
 def seed_if_empty():
     inspector = sa_inspect(db.engine)
     tables = inspector.get_table_names()
-    if 'retail_sample' in tables:
+    if any(t for t in tables if t == 'user_retail_sample'):
         return
 
     np.random.seed(42)
@@ -27,4 +27,4 @@ def seed_if_empty():
     df.loc[150, 'sales'] = 10
     df.loc[300, 'sales'] = 180000
 
-    df.to_sql('retail_sample', db.engine, if_exists='replace', index=False)
+    df.to_sql('user_retail_sample', db.engine, if_exists='replace', index=False)

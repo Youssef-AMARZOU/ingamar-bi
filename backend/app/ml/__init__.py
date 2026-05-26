@@ -65,7 +65,7 @@ def train_model():
     if row_count < 10:
         return jsonify({
             'error': f"Not enough data to train. Table '{table_name}' has {row_count} rows. Need at least 10.",
-            'suggestion': 'Upload a dataset first or use the retail_sample dataset.'
+            'suggestion': 'Upload a dataset first or use the user_retail_sample dataset.'
         }), 422
 
     try:
