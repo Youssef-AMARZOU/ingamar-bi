@@ -4,24 +4,22 @@
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/assets/logo.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="build" content="2026-05-26-v1" />
+  <meta name="build" content="2026-05-26-v2" />
   <title>INGAMAR - Data Visualization Platform</title>
   <script>
     (function() {
       try {
         var theme = JSON.parse(localStorage.getItem('ingamar-theme') || '{}');
-        var isDark = theme.state && theme.state.darkMode;
-        document.documentElement.classList.remove('dark', 'light');
-        document.documentElement.classList.add(isDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', (theme.state && theme.state.darkMode) ? 'dark' : 'light');
       } catch(e) {
-        document.documentElement.classList.remove('dark');
-        document.documentElement.classList.add('light');
+        document.documentElement.setAttribute('data-theme', 'light');
       }
+      document.documentElement.setAttribute('data-loading', '');
     })();
   </script>
   <style>
-    html.light body { background-color: #f5f7fa; color: #374151; }
-    html.dark body { background-color: #141414; color: #e5e7eb; }
+    [data-theme="light"] body { background: #f4f5f7; }
+    [data-theme="dark"] body { background: #111217; }
   </style>
 </head>
 <body>

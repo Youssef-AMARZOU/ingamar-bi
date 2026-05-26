@@ -19,13 +19,22 @@ const getInitialDarkMode = (): boolean => {
   return false
 }
 
+const applyTheme = (dark: boolean) => {
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
+}
+
 const initialDarkMode = getInitialDarkMode()
+applyTheme(initialDarkMode)
 
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set) => ({
       darkMode: initialDarkMode,
-      toggleDarkMode: () => set((state) => ({ darkMode: !state.darkMode })),
+      toggleDarkMode: () => set((state) => {
+        const next = !state.darkMode
+        applyTheme(next)
+        return { darkMode: next }
+      }),
     }),
     { name: 'ingamar-theme' }
   )

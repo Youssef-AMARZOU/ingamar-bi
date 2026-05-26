@@ -28,10 +28,9 @@ function App() {
   const { isAuthenticated } = useAuthStore()
   const { darkMode } = useThemeStore()
 
-  // Apply theme class to root element to prevent flicker
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', darkMode)
-    document.documentElement.classList.toggle('light', !darkMode)
+    document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light')
+    document.documentElement.removeAttribute('data-loading')
   }, [darkMode])
 
   if (!isAuthenticated) {
