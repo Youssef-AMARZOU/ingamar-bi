@@ -1,7 +1,14 @@
 {
-  "name": "ingamar-frontend",
+  "name": "@Youssef-AMARZOU/ingamar-frontend",
   "version": "1.0.0",
-  "private": true,
+  "private": false,
+  "publishConfig": {
+    "@Youssef-AMARZOU:registry": "https://npm.pkg.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Youssef-AMARZOU/ingamar-bi.git"
+  },
   "dependencies": {
     "@ant-design/icons": "^5.2.6",
     "@ant-design/plots": "^2.1.12",

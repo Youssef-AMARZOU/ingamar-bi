@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { Card, Select, Button, Space, message, Spin, Table, Tag, Typography, Row, Col, Divider, InputNumber, Radio, Tabs, Statistic, Alert, Tooltip, Input } from 'antd'
+import { Card, Select, Button, Space, message, Spin, Table, Tag, Typography, Row, Col, Divider, InputNumber, Radio, Tabs, Statistic, Alert, Tooltip, Input, Modal } from 'antd'
 import {
   ExperimentOutlined, ArrowLeftOutlined, RocketOutlined, AimOutlined,
   HeatMapOutlined, BarChartOutlined, DeleteOutlined, NodeIndexOutlined,
-  ThunderboltOutlined
+  ThunderboltOutlined, EditOutlined, CheckCircleOutlined
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import ReactECharts from 'echarts-for-react'
@@ -33,6 +33,9 @@ const DLPage: React.FC = () => {
   const [selectedModel, setSelectedModel] = useState<string>('')
   const [predictInput, setPredictInput] = useState<Record<string, string>>({})
   const [prediction, setPrediction] = useState<any>(null)
+  const [renameModalOpen, setRenameModalOpen] = useState(false)
+  const [renameModelId, setRenameModelId] = useState('')
+  const [renameValue, setRenameValue] = useState('')
 
   useEffect(() => { fetchDatasets(); fetchModels() }, [])
 
@@ -115,8 +118,35 @@ const DLPage: React.FC = () => {
       await api.delete(`/dl/models/${modelId}`)
       message.success('Model deleted')
       fetchModels()
+      if (selectedModel === modelId) setSelectedModel('')
     } catch (e: any) {
       message.error('Failed to delete model')
+    }
+  }
+
+  const handleSelectModel = (model: any) => {
+    setSelectedModel(model.model_id)
+    setActiveTab('predict')
+    setPredictInput({})
+    setPrediction(null)
+    const ds = datasets.find(d => d.table_name === model.table_name)
+    if (ds) {
+      setSelectedDataset(model.table_name)
+      setDatasetInfo(ds)
+      setTarget(model.target)
+      setFeatures(model.features)
+    }
+  }
+
+  const handleRename = async () => {
+    if (!renameValue.trim()) { message.error('Enter a name'); return }
+    try {
+      await api.put(`/dl/models/${renameModelId}/name`, { name: renameValue.trim() })
+      message.success('Model renamed')
+      setRenameModalOpen(false)
+      fetchModels()
+    } catch (e: any) {
+      message.error('Failed to rename')
     }
   }
 
@@ -202,19 +232,44 @@ const DLPage: React.FC = () => {
 
   const renderSamplePredictions = () => {
     if (!result?.sample_predictions || result.sample_predictions.length === 0) return null
+    const hasLabels = result.sample_predictions.some((p: any) => p.actual_label && p.actual_label !== String(p.actual))
     return (
       <Card size="small" title="Sample Predictions (Actual vs Predicted)" style={{ marginBottom: 16 }}>
+        {hasLabels && (
+          <div style={{ marginBottom: 8 }}>
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              Labels shown below the numeric values. Hover for details.
+            </Text>
+          </div>
+        )}
         <ReactECharts
           option={{
-            tooltip: { trigger: 'axis' },
+            tooltip: {
+              trigger: 'axis',
+              formatter: (params: any) => {
+                const idx = params[0]?.dataIndex
+                const p = result.sample_predictions[idx]
+                if (!p) return ''
+                let s = `<b>Sample ${idx + 1}</b><br/>`
+                s += `Actual: ${p.actual_label || p.actual}<br/>`
+                s += `Predicted: ${p.predicted_label || p.predicted}`
+                return s
+              }
+            },
             legend: { data: ['Actual', 'Predicted'], bottom: 0 },
-            xAxis: { type: 'category', data: result.sample_predictions.map((_: any, i: number) => i + 1) },
+            xAxis: {
+              type: 'category',
+              data: hasLabels
+                ? result.sample_predictions.map((p: any) => p.actual_label || String(p.actual))
+                : result.sample_predictions.map((_: any, i: number) => i + 1),
+              axisLabel: { rotate: 45, fontSize: 9 }
+            },
             yAxis: { type: 'value' },
             series: [
               { name: 'Actual', type: 'scatter', data: result.sample_predictions.map((p: any) => p.actual), itemStyle: { color: '#1890ff' } },
               { name: 'Predicted', type: 'scatter', data: result.sample_predictions.map((p: any) => p.predicted), itemStyle: { color: '#ff4d4f' } },
             ],
-            grid: { left: 60, right: 20, top: 10, bottom: 50 },
+            grid: { left: 60, right: 20, top: 10, bottom: hasLabels ? 80 : 50 },
           }}
           style={{ height: 300 }}
         />
@@ -351,12 +406,30 @@ const DLPage: React.FC = () => {
           {models.length > 0 && (
             <Card size="small" title="Saved Models" bodyStyle={{ padding: 8 }} style={{ marginTop: 12 }}>
               {models.map(m => (
-                <div key={m.model_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 8px', borderBottom: '1px solid ' + (darkMode ? '#303030' : '#f0f0f0') }}>
-                  <div>
-                    <Text style={{ fontSize: 11, fontWeight: 600 }}>{m.table_name}</Text>
-                    <div><Tag style={{ fontSize: 9 }}>{m.target}</Tag></div>
+                <div
+                  key={m.model_id}
+                  onClick={() => handleSelectModel(m)}
+                  style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '8px 10px', borderBottom: '1px solid ' + (darkMode ? '#303030' : '#f0f0f0'),
+                    cursor: 'pointer', borderRadius: 4,
+                    background: selectedModel === m.model_id ? (darkMode ? '#177ddc22' : '#e6f7ff') : 'transparent',
+                    transition: 'background 0.2s',
+                  }}
+                  onMouseEnter={e => { if (selectedModel !== m.model_id) e.currentTarget.style.background = darkMode ? '#ffffff08' : '#fafafa' }}
+                  onMouseLeave={e => { if (selectedModel !== m.model_id) e.currentTarget.style.background = 'transparent' }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={{ fontSize: 12, fontWeight: 600, display: 'block' }} ellipsis>{m.name || `${m.table_name} → ${m.target}`}</Text>
+                    <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
+                      <Tag style={{ fontSize: 9 }} color={m.is_classification ? 'blue' : 'green'}>{m.is_classification ? 'clf' : 'reg'}</Tag>
+                      <Tag style={{ fontSize: 9 }}>{m.model_id}</Tag>
+                    </div>
                   </div>
-                  <Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={() => handleDeleteModel(m.model_id)} />
+                  <Space size={0}>
+                    <Button size="small" type="text" icon={<EditOutlined />} onClick={e => { e.stopPropagation(); setRenameModelId(m.model_id); setRenameValue(m.name || ''); setRenameModalOpen(true) }} />
+                    <Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={e => { e.stopPropagation(); handleDeleteModel(m.model_id) }} />
+                  </Space>
                 </div>
               ))}
             </Card>
@@ -444,10 +517,28 @@ const DLPage: React.FC = () => {
                             <Alert
                               style={{ marginTop: 12 }}
                               type="success" showIcon
-                              message={`Prediction: ${prediction.prediction}`}
-                              description={prediction.probabilities
-                                ? `Probabilities: ${prediction.probabilities.map((p: number, i: number) => `Class ${i}: ${(p * 100).toFixed(1)}%`).join(', ')}`
-                                : undefined}
+                              message={prediction.prediction_label
+                                ? `Prediction: ${prediction.prediction_label}`
+                                : `Prediction: ${prediction.prediction}`}
+                              description={
+                                <>
+                                  {prediction.is_classification && prediction.prediction_label && (
+                                    <div style={{ marginBottom: 4 }}>
+                                      <Text type="secondary">Raw value: {prediction.prediction}</Text>
+                                    </div>
+                                  )}
+                                  {prediction.probabilities && (
+                                    <div>
+                                      <Text strong style={{ fontSize: 11 }}>Probabilities: </Text>
+                                      {prediction.probabilities.map((p: any, i: number) => (
+                                        <Tag key={i} style={{ fontSize: 10, margin: '2px' }}>
+                                          {p.class || `Class ${i}`}: {(p.probability * 100).toFixed(1)}%
+                                        </Tag>
+                                      ))}
+                                    </div>
+                                  )}
+                                </>
+                              }
                             />
                           )}
                         </>
@@ -463,24 +554,36 @@ const DLPage: React.FC = () => {
               children: (
                 <div style={{ maxHeight: 'calc(100vh - 160px)', overflow: 'auto' }}>
                   <Card size="small" title={`Trained Models (${models.length})`}>
-                    <Table
-                      size="small"
-                      dataSource={models}
-                      rowKey="model_id"
-                      pagination={false}
-                      columns={[
-                        { title: 'Dataset', dataIndex: 'table_name', key: 'table_name' },
-                        { title: 'Target', dataIndex: 'target', key: 'target' },
-                        { title: 'Features', dataIndex: 'features', key: 'features', render: (f: string[]) => <Tag>{f.length} cols</Tag> },
-                        { title: 'Type', dataIndex: 'is_classification', key: 'type', render: (v: boolean) => <Tag color={v ? 'blue' : 'green'}>{v ? 'Classification' : 'Regression'}</Tag> },
-                        {
-                          title: 'Actions', key: 'actions',
-                          render: (_: any, record: any) => (
-                            <Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={() => handleDeleteModel(record.model_id)} />
-                          ),
-                        },
-                      ]}
-                    />
+                    {models.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>
+                        <NodeIndexOutlined style={{ fontSize: 48, color: '#d1d5db', marginBottom: 12 }} />
+                        <div>No trained models yet. Train a neural network first.</div>
+                      </div>
+                    ) : (
+                      <Table
+                        size="small"
+                        dataSource={models}
+                        rowKey="model_id"
+                        pagination={false}
+                        onRow={(record) => ({ onClick: () => handleSelectModel(record), style: { cursor: 'pointer' } })}
+                        columns={[
+                          { title: 'Name', dataIndex: 'name', key: 'name', render: (v: string, r: any) => <Text strong>{v || `${r.table_name} → ${r.target}`}</Text> },
+                          { title: 'Dataset', dataIndex: 'table_name', key: 'table_name' },
+                          { title: 'Target', dataIndex: 'target', key: 'target', render: (v: string) => <Tag color="blue">{v}</Tag> },
+                          { title: 'Features', dataIndex: 'features', key: 'features', render: (f: string[]) => <Tag>{f.length} cols</Tag> },
+                          { title: 'Type', dataIndex: 'is_classification', key: 'type', render: (v: boolean) => <Tag color={v ? 'blue' : 'green'}>{v ? 'Classification' : 'Regression'}</Tag> },
+                          {
+                            title: 'Actions', key: 'actions',
+                            render: (_: any, record: any) => (
+                              <Space size={0}>
+                                <Button size="small" type="text" icon={<EditOutlined />} onClick={e => { e.stopPropagation(); setRenameModelId(record.model_id); setRenameValue(record.name || ''); setRenameModalOpen(true) }} />
+                                <Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={e => { e.stopPropagation(); handleDeleteModel(record.model_id) }} />
+                              </Space>
+                            ),
+                          },
+                        ]}
+                      />
+                    )}
                   </Card>
                 </div>
               ),
@@ -488,6 +591,21 @@ const DLPage: React.FC = () => {
           ]} />
         </Col>
       </Row>
+
+      <Modal
+        title="Rename Model"
+        open={renameModalOpen}
+        onOk={handleRename}
+        onCancel={() => setRenameModalOpen(false)}
+        okText="Rename"
+      >
+        <Input
+          placeholder="Model name"
+          value={renameValue}
+          onChange={e => setRenameValue(e.target.value)}
+          onPressEnter={handleRename}
+        />
+      </Modal>
     </div>
   )
 }

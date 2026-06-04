@@ -1,0 +1,98 @@
+name: Publish to GitHub Packages
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Package version (e.g. 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  publish-docker:
+    name: Publish Docker Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha
+          type=raw,value=latest
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+
+    - name: Generate artifact attestation
+      uses: actions/attest-build-provenance@v2
+      with:
+        subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        subject-digest: ${{ steps.meta.outputs.digest }}
+        push-to-registry: true
+
+  publish-npm:
+    name: Publish NPM Package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        registry-url: 'https://npm.pkg.github.com'
+        scope: '@Youssef-AMARZOU'
+
+    - name: Install dependencies
+      run: cd frontend && npm ci
+
+    - name: Build frontend
+      run: cd frontend && npm run build
+
+    - name: Update package.json for GitHub Packages
+      run: |
+        cd frontend
+        $pkg = Get-Content package.json | ConvertFrom-Json
+        $pkg.name = "@Youssef-AMARZOU/ingamar-frontend"
+        $pkg.version = if ("${{ github.event.inputs.version }}" -ne "") { "${{ github.event.inputs.version }}" } else { "1.0.0" }
+        $pkg | ConvertTo-Json -Depth 10 | Set-Content package.json
+      shell: pwsh
+
+    - name: Publish to GitHub Packages
+      run: cd frontend && npm publish
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

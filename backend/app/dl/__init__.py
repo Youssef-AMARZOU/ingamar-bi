@@ -92,16 +92,20 @@ def train_neural_network():
     y = df[target].copy()
 
     label_encoders = {}
+    label_mappings = {}
     for col in X.columns:
         if X[col].dtype == 'object':
             le = LabelEncoder()
             X[col] = le.fit_transform(X[col].astype(str))
             label_encoders[col] = le
+            label_mappings[col] = {int(k): str(v) for k, v in zip(le.transform(le.classes_), le.classes_)}
 
+    target_labels = None
     if y.dtype == 'object':
         le = LabelEncoder()
         y = le.fit_transform(y.astype(str))
         label_encoders['__target__'] = le
+        target_labels = {int(k): str(v) for k, v in zip(le.transform(le.classes_), le.classes_)}
 
     X = X.fillna(0)
     y = pd.Series(y).fillna(0)
@@ -166,12 +170,17 @@ def train_neural_network():
     # Sample predictions
     sample_predictions = []
     for i in range(min(20, len(y_test))):
+        actual_val = float(y_test.iloc[i]) if hasattr(y_test, 'iloc') else float(y_test[i])
+        pred_val = float(y_pred[i])
+        actual_label = target_labels.get(int(round(actual_val)), str(actual_val)) if target_labels and is_classification else str(actual_val)
+        pred_label = target_labels.get(int(round(pred_val)), str(pred_val)) if target_labels and is_classification else str(pred_val)
         sample_predictions.append({
-            'actual': round(float(y_test.iloc[i]) if hasattr(y_test, 'iloc') else float(y_test[i]), 4),
-            'predicted': round(float(y_pred[i]), 4),
+            'actual': round(actual_val, 4),
+            'predicted': round(pred_val, 4),
+            'actual_label': actual_label,
+            'predicted_label': pred_label,
         })
 
-    # Save model
     model_id = str(uuid.uuid4())[:8]
     model_data = {
         'model': model,
@@ -181,6 +190,8 @@ def train_neural_network():
         'target': target,
         'is_classification': is_classification,
         'table_name': table_name,
+        'target_labels': target_labels,
+        'label_mappings': label_mappings,
     }
     model_path = os.path.join(MODELS_DIR, f'dl_{model_id}.pkl')
     with open(model_path, 'wb') as f:
@@ -225,6 +236,7 @@ def predict_nn():
     label_encoders = saved['label_encoders']
     features = saved['features']
     is_classification = saved['is_classification']
+    target_labels = saved.get('target_labels', None)
 
     input_df = pd.DataFrame([input_data])
     for col in features:
@@ -239,10 +251,20 @@ def predict_nn():
     input_scaled = scaler.transform(input_df)
     prediction = model.predict(input_scaled)
 
-    result = {'prediction': round(float(prediction[0]), 4)}
-    if hasattr(model, 'predict_proba') and is_classification:
+    pred_value = float(prediction[0])
+    pred_label = target_labels.get(int(round(pred_value)), str(round(pred_value, 4))) if target_labels and is_classification else str(round(pred_value, 4))
+
+    result = {
+        'prediction': round(pred_value, 4),
+        'prediction_label': pred_label,
+        'is_classification': is_classification,
+    }
+    if hasattr(model, 'predict_proba') and is_classification and target_labels:
         proba = model.predict_proba(input_scaled)[0]
-        result['probabilities'] = [round(float(p), 4) for p in proba]
+        result['probabilities'] = [
+            {'class': target_labels.get(i, str(i)), 'probability': round(float(p), 4)}
+            for i, p in enumerate(proba)
+        ]
 
     return jsonify(result)
 
@@ -263,6 +285,8 @@ def list_models():
                     'target': saved.get('target', 'unknown'),
                     'features': saved.get('features', []),
                     'is_classification': saved.get('is_classification', False),
+                    'name': saved.get('name', f"{saved.get('table_name', 'unknown')} → {saved.get('target', 'unknown')}"),
+                    'target_labels': saved.get('target_labels', None),
                     'created': os.path.getmtime(model_path),
                 })
             except Exception:
@@ -277,3 +301,22 @@ def delete_model(model_id):
         os.remove(model_path)
         return jsonify({'message': 'Model deleted'})
     return jsonify({'error': 'Model not found'}), 404
+
+@dl_bp.route('/models/<model_id>/name', methods=['PUT'])
+@jwt_required()
+def rename_model(model_id):
+    data = request.get_json()
+    name = data.get('name', '').strip()
+    if not name:
+        return jsonify({'error': 'name is required'}), 400
+
+    model_path = os.path.join(MODELS_DIR, f'dl_{model_id}.pkl')
+    if not os.path.exists(model_path):
+        return jsonify({'error': 'Model not found'}), 404
+
+    with open(model_path, 'rb') as f:
+        saved = pickle.load(f)
+    saved['name'] = name
+    with open(model_path, 'wb') as f:
+        pickle.dump(saved, f)
+    return jsonify({'message': 'Model renamed', 'name': name})

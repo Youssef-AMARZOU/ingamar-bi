@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import { Card, Select, Button, Space, message, Spin, Table, Tag, Typography, Row, Col, Divider, InputNumber, Radio, Tabs, Statistic, Progress, Alert, Tooltip, Input } from 'antd'
+import { Card, Select, Button, Space, message, Spin, Table, Tag, Typography, Row, Col, Divider, InputNumber, Radio, Tabs, Statistic, Progress, Alert, Tooltip, Input, Modal } from 'antd'
 import {
   ExperimentOutlined, BarChartOutlined, LineChartOutlined, DotChartOutlined,
   ThunderboltOutlined, ArrowLeftOutlined, RocketOutlined, CheckCircleOutlined,
   WarningOutlined, InfoCircleOutlined, AimOutlined, NodeIndexOutlined,
-  BranchesOutlined, HeatMapOutlined
+  BranchesOutlined, HeatMapOutlined, DeleteOutlined, EditOutlined
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import ReactECharts from 'echarts-for-react'
@@ -62,8 +62,25 @@ const MLPage: React.FC = () => {
   const [featureImpData, setFeatureImpData] = useState<any>(null)
   const [predictInput, setPredictInput] = useState<Record<string, string>>({})
   const [prediction, setPrediction] = useState<any>(null)
+  const [savedModels, setSavedModels] = useState<any[]>([])
+  const [selectedModelId, setSelectedModelId] = useState<string>('')
+  const [renameModalOpen, setRenameModalOpen] = useState(false)
+  const [renameModelId, setRenameModelId] = useState('')
+  const [renameValue, setRenameValue] = useState('')
+  const [explanation, setExplanation] = useState<any>(null)
+  const [simColumn, setSimColumn] = useState<string>('')
+  const [simDays, setSimDays] = useState(30)
+  const [simCount, setSimCount] = useState(1000)
+  const [simulation, setSimulation] = useState<any>(null)
 
-  useEffect(() => { fetchDatasets() }, [])
+  useEffect(() => { fetchDatasets(); fetchModels() }, [])
+
+  const fetchModels = async () => {
+    try {
+      const res = await api.get('/ml/models')
+      setSavedModels(Array.isArray(res.data) ? res.data : [])
+    } catch (e) { console.error(e) }
+  }
 
   const fetchDatasets = async () => {
     try {
@@ -107,6 +124,7 @@ const MLPage: React.FC = () => {
       })
       setResult(res.data)
       message.success('Model trained successfully!')
+      fetchModels()
     } catch (e: any) {
       message.error(e?.response?.data?.error || 'Training failed')
     } finally {
@@ -176,25 +194,103 @@ const MLPage: React.FC = () => {
   }
 
   const handlePredict = async () => {
-    if (!selectedDataset || !target || !modelType) {
-      message.error('Select dataset, target, and model')
+    if (!selectedModelId && (!selectedDataset || !target || !modelType)) {
+      message.error('Select a saved model or configure dataset/target/model')
       return
     }
     setTraining(true)
     try {
-      const res = await api.post('/ml/predict', {
-        dataset: selectedDataset,
-        target,
-        features,
-        model_type: modelType,
-        input_data: predictInput,
-      })
+      let res
+      if (selectedModelId) {
+        res = await api.post('/ml/models/predict', {
+          model_id: selectedModelId,
+          input_data: predictInput,
+        })
+      } else {
+        res = await api.post('/ml/predict', {
+          dataset: selectedDataset,
+          target,
+          features,
+          model_type: modelType,
+          input_data: predictInput,
+        })
+      }
       setPrediction(res.data)
     } catch (e: any) {
       message.error(e?.response?.data?.error || 'Prediction failed')
     } finally {
       setTraining(false)
     }
+  }
+
+  const handleSelectModel = (model: any) => {
+    setSelectedModelId(model.model_id)
+    setActiveTab('predict')
+    setPredictInput({})
+    setPrediction(null)
+    const ds = datasets.find(d => d.table_name === model.table_name)
+    if (ds) {
+      setSelectedDataset(model.table_name)
+      setDatasetInfo(ds)
+      setTarget(model.target)
+      setFeatures(model.features)
+      setModelType(model.model_type || 'auto')
+    }
+  }
+
+  const handleDeleteModel = async (modelId: string) => {
+    try {
+      await api.delete(`/ml/models/${modelId}`)
+      message.success('Model deleted')
+      fetchModels()
+      if (selectedModelId === modelId) setSelectedModelId('')
+    } catch (e: any) {
+      message.error('Failed to delete model')
+    }
+  }
+
+  const handleRename = async () => {
+    if (!renameValue.trim()) { message.error('Enter a name'); return }
+    try {
+      await api.put(`/ml/models/${renameModelId}/name`, { name: renameValue.trim() })
+      message.success('Model renamed')
+      setRenameModalOpen(false)
+      fetchModels()
+    } catch (e: any) {
+      message.error('Failed to rename')
+    }
+  }
+
+  const handleExplain = async () => {
+    if (!selectedModelId) { message.error('Select a saved model first'); return }
+    setTraining(true)
+    setExplanation(null)
+    try {
+      const res = await api.post('/ml/explain', {
+        model_id: selectedModelId,
+        input_data: predictInput,
+      })
+      setExplanation(res.data)
+    } catch (e: any) {
+      message.error(e?.response?.data?.error || 'Explanation failed')
+    } finally { setTraining(false) }
+  }
+
+  const handleSimulate = async () => {
+    if (!selectedDataset || !simColumn) { message.error('Select dataset and column'); return }
+    setTraining(true)
+    setSimulation(null)
+    try {
+      const res = await api.post('/ml/simulate', {
+        dataset: selectedDataset,
+        column: simColumn,
+        n_simulations: simCount,
+        n_days: simDays,
+      })
+      setSimulation(res.data)
+    } catch (e: any) {
+      message.error(e?.response?.data?.error || 'Simulation failed')
+    } finally { setTraining(false) }
   }
 
   const getMetricColor = (key: string, val: number) => {
@@ -286,19 +382,37 @@ const MLPage: React.FC = () => {
 
   const renderSamplePredictions = () => {
     if (!result?.sample_predictions || result.sample_predictions.length === 0) return null
+    const hasLabels = result.sample_predictions.some((p: any) => p.actual_label && p.actual_label !== String(p.actual))
     return (
       <Card size="small" title="Sample Predictions (Actual vs Predicted)" style={{ marginBottom: 16 }}>
         <ReactECharts
           option={{
-            tooltip: { trigger: 'axis' },
+            tooltip: {
+              trigger: 'axis',
+              formatter: (params: any) => {
+                const idx = params[0]?.dataIndex
+                const p = result.sample_predictions[idx]
+                if (!p) return ''
+                let s = `<b>Sample ${idx + 1}</b><br/>`
+                s += `Actual: ${p.actual_label || p.actual}<br/>`
+                s += `Predicted: ${p.predicted_label || p.predicted}`
+                return s
+              }
+            },
             legend: { data: ['Actual', 'Predicted'], bottom: 0 },
-            xAxis: { type: 'category', data: result.sample_predictions.map((_: any, i: number) => i + 1) },
+            xAxis: {
+              type: 'category',
+              data: hasLabels
+                ? result.sample_predictions.map((p: any) => p.actual_label || String(p.actual))
+                : result.sample_predictions.map((_: any, i: number) => i + 1),
+              axisLabel: { rotate: 45, fontSize: 9 }
+            },
             yAxis: { type: 'value' },
             series: [
               { name: 'Actual', type: 'scatter', data: result.sample_predictions.map((p: any) => p.actual), itemStyle: { color: '#1890ff' } },
               { name: 'Predicted', type: 'scatter', data: result.sample_predictions.map((p: any) => p.predicted), itemStyle: { color: '#ff4d4f' } },
             ],
-            grid: { left: 60, right: 20, top: 10, bottom: 50 },
+            grid: { left: 60, right: 20, top: 10, bottom: hasLabels ? 80 : 50 },
           }}
           style={{ height: 300 }}
         />
@@ -564,6 +678,38 @@ const MLPage: React.FC = () => {
               </>
             )}
           </Card>
+
+          {savedModels.length > 0 && (
+            <Card size="small" title="Saved Models" bodyStyle={{ padding: 8 }} style={{ marginTop: 12 }}>
+              {savedModels.map(m => (
+                <div
+                  key={m.model_id}
+                  onClick={() => handleSelectModel(m)}
+                  style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '8px 10px', borderBottom: '1px solid ' + (darkMode ? '#303030' : '#f0f0f0'),
+                    cursor: 'pointer', borderRadius: 4,
+                    background: selectedModelId === m.model_id ? (darkMode ? '#177ddc22' : '#e6f7ff') : 'transparent',
+                    transition: 'background 0.2s',
+                  }}
+                  onMouseEnter={e => { if (selectedModelId !== m.model_id) e.currentTarget.style.background = darkMode ? '#ffffff08' : '#fafafa' }}
+                  onMouseLeave={e => { if (selectedModelId !== m.model_id) e.currentTarget.style.background = 'transparent' }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={{ fontSize: 12, fontWeight: 600, display: 'block' }} ellipsis>{m.name || `${m.table_name} → ${m.target}`}</Text>
+                    <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
+                      <Tag style={{ fontSize: 9 }} color={m.is_classification ? 'blue' : 'green'}>{m.is_classification ? 'clf' : 'reg'}</Tag>
+                      <Tag style={{ fontSize: 9 }}>{m.model_type}</Tag>
+                    </div>
+                  </div>
+                  <Space size={0}>
+                    <Button size="small" type="text" icon={<EditOutlined />} onClick={e => { e.stopPropagation(); setRenameModelId(m.model_id); setRenameValue(m.name || ''); setRenameModalOpen(true) }} />
+                    <Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={e => { e.stopPropagation(); handleDeleteModel(m.model_id) }} />
+                  </Space>
+                </div>
+              ))}
+            </Card>
+          )}
         </Col>
 
         <Col span={17}>
@@ -630,22 +776,42 @@ const MLPage: React.FC = () => {
               label: <span><AimOutlined /> Predict</span>,
               children: (
                 <div style={{ maxHeight: 'calc(100vh - 160px)', overflow: 'auto' }}>
-                  {!datasetInfo ? (
+                  {!datasetInfo && savedModels.length === 0 ? (
                     <Card style={{ textAlign: 'center', padding: 60 }}>
                       <AimOutlined style={{ fontSize: 64, color: '#d1d5db', marginBottom: 16 }} />
                       <div style={{ fontSize: 18, fontWeight: 600 }}>Predict</div>
-                      <div style={{ color: '#9ca3af' }}>Select a dataset first.</div>
+                      <div style={{ color: '#9ca3af' }}>Select a dataset or train a model first.</div>
                     </Card>
                   ) : (
                     <Card size="small" title="Make Predictions">
-                      <div style={{ marginBottom: 12 }}>
-                        <Text strong>Model: </Text>
-                        <Select value={modelType} onChange={setModelType} style={{ width: 200 }}>
-                          {ML_MODELS.regression.concat(ML_MODELS.classification).map(m => (
-                            <Option key={m.value} value={m.value}>{m.icon} {m.label}</Option>
-                          ))}
-                        </Select>
-                      </div>
+                      {savedModels.length > 0 && (
+                        <div style={{ marginBottom: 12 }}>
+                          <Text strong>Load Saved Model: </Text>
+                          <Select
+                            value={selectedModelId || undefined}
+                            onChange={(val) => {
+                              if (val) {
+                                const m = savedModels.find(sm => sm.model_id === val)
+                                if (m) handleSelectModel(m)
+                              } else {
+                                setSelectedModelId('')
+                              }
+                            }}
+                            style={{ width: 300 }}
+                            allowClear
+                            placeholder="Select a saved model"
+                          >
+                            {savedModels.map(m => (
+                              <Option key={m.model_id} value={m.model_id}>
+                                {m.name || `${m.table_name} → ${m.target}`}
+                              </Option>
+                            ))}
+                          </Select>
+                          {selectedModelId && (
+                            <Tag color="blue" style={{ marginLeft: 8 }}>Using saved model</Tag>
+                          )}
+                        </div>
+                      )}
                       <Divider style={{ margin: '8px 0' }} />
                       <Row gutter={[8, 8]}>
                         {(features.length > 0 ? features : allColumns.filter((c: any) => c.name !== target).map((c: any) => c.name)).map((col: string) => (
@@ -665,20 +831,172 @@ const MLPage: React.FC = () => {
                       <Button type="primary" icon={<AimOutlined />} style={{ marginTop: 12 }} onClick={handlePredict} loading={training}>
                         Predict
                       </Button>
+                      {selectedModelId && (
+                        <Button icon={<ThunderboltOutlined />} style={{ marginTop: 12, marginLeft: 8 }} onClick={handleExplain} loading={training}>
+                          Explain Prediction
+                        </Button>
+                      )}
                       {prediction && (
                         <Alert
                           style={{ marginTop: 12 }}
                           type="success"
                           showIcon
-                          message={`Prediction: ${prediction.prediction}`}
+                          message={prediction.prediction_label
+                            ? `Prediction: ${prediction.prediction_label}`
+                            : `Prediction: ${prediction.prediction}`}
                           description={
-                            prediction.probabilities
-                              ? `Probabilities: ${prediction.probabilities.map((p: number, i: number) => `Class ${i}: ${(p * 100).toFixed(1)}%`).join(', ')}`
-                              : undefined
+                            <>
+                              {prediction.is_classification && prediction.prediction_label && (
+                                <div style={{ marginBottom: 4 }}>
+                                  <Text type="secondary">Raw value: {prediction.prediction}</Text>
+                                </div>
+                              )}
+                              {prediction.probabilities && (
+                                <div>
+                                  <Text strong style={{ fontSize: 11 }}>Probabilities: </Text>
+                                  {prediction.probabilities.map((p: any, i: number) => (
+                                    <Tag key={i} style={{ fontSize: 10, margin: '2px' }}>
+                                      {p.class || `Class ${i}`}: {(p.probability * 100).toFixed(1)}%
+                                    </Tag>
+                                  ))}
+                                </div>
+                              )}
+                            </>
                           }
                         />
                       )}
+                      {explanation && (
+                        <Card size="small" title="Prediction Explanation (LIME-inspired)" style={{ marginTop: 12 }}>
+                          <div style={{ marginBottom: 8 }}>
+                            <Text type="secondary" style={{ fontSize: 11 }}>
+                              Feature contributions for prediction: <Text strong>{explanation.prediction_label || explanation.prediction}</Text>
+                            </Text>
+                          </div>
+                          <ReactECharts
+                            option={{
+                              tooltip: { trigger: 'axis' },
+                              xAxis: { type: 'value' },
+                              yAxis: {
+                                type: 'category',
+                                data: explanation.explanation.map((e: any) => e.feature).reverse(),
+                                axisLabel: { fontSize: 11 }
+                              },
+                              series: [{
+                                type: 'bar',
+                                data: explanation.explanation.map((e: any) => e.contribution).reverse(),
+                                itemStyle: {
+                                  color: (params: any) => params.value >= 0 ? '#52c41a' : '#ff4d4f',
+                                  borderRadius: [0, 4, 4, 0]
+                                },
+                              }],
+                              grid: { left: '30%', right: '5%', top: 5, bottom: 5 },
+                            }}
+                            style={{ height: Math.max(150, explanation.explanation.length * 28) }}
+                          />
+                          <div style={{ marginTop: 8 }}>
+                            <Text type="secondary" style={{ fontSize: 10 }}>
+                              Positive = pushes prediction higher, Negative = pushes prediction lower
+                            </Text>
+                          </div>
+                        </Card>
+                      )}
                     </Card>
+                  )}
+                </div>
+              ),
+            },
+            {
+              key: 'simulate',
+              label: <span><ThunderboltOutlined /> Monte Carlo</span>,
+              children: (
+                <div style={{ maxHeight: 'calc(100vh - 160px)', overflow: 'auto' }}>
+                  {!selectedDataset ? (
+                    <Card style={{ textAlign: 'center', padding: 60 }}>
+                      <ThunderboltOutlined style={{ fontSize: 64, color: '#d1d5db', marginBottom: 16 }} />
+                      <div style={{ fontSize: 18, fontWeight: 600 }}>Monte Carlo Simulation</div>
+                      <div style={{ color: '#9ca3af' }}>Select a dataset first.</div>
+                    </Card>
+                  ) : (
+                    <>
+                      <Card size="small" title="Monte Carlo Configuration" style={{ marginBottom: 16 }}>
+                        <Row gutter={12}>
+                          <Col span={8}>
+                            <Text strong style={{ fontSize: 12 }}>Numeric Column</Text>
+                            <Select
+                              style={{ width: '100%', marginTop: 4 }}
+                              placeholder="Select column"
+                              value={simColumn || undefined}
+                              onChange={setSimColumn}
+                            >
+                              {numericColumns.map((c: string) => (
+                                <Option key={c} value={c}>{c}</Option>
+                              ))}
+                            </Select>
+                          </Col>
+                          <Col span={8}>
+                            <Text strong style={{ fontSize: 12 }}>Forecast Days</Text>
+                            <InputNumber min={7} max={365} value={simDays} onChange={v => setSimDays(v || 30)} style={{ width: '100%', marginTop: 4 }} />
+                          </Col>
+                          <Col span={8}>
+                            <Text strong style={{ fontSize: 12 }}>Simulations</Text>
+                            <InputNumber min={100} max={10000} step={100} value={simCount} onChange={v => setSimCount(v || 1000)} style={{ width: '100%', marginTop: 4 }} />
+                          </Col>
+                        </Row>
+                        <Button type="primary" icon={<ThunderboltOutlined />} style={{ marginTop: 12 }} onClick={handleSimulate} loading={training}>
+                          Run Simulation
+                        </Button>
+                      </Card>
+                      {training && <Spin tip="Running Monte Carlo simulation..." style={{ width: '100%', padding: 40 }} />}
+                      {!training && simulation && (
+                        <>
+                          <Alert
+                            message={`${simulation.column} — Last: ${simulation.last_value} — ${simulation.n_simulations} simulations over ${simulation.n_days} days`}
+                            type="info" showIcon style={{ marginBottom: 16 }}
+                          />
+                          <Card size="small" title="Forecast Fan Chart (Percentiles)" style={{ marginBottom: 16 }}>
+                            <ReactECharts
+                              option={{
+                                tooltip: { trigger: 'axis' },
+                                legend: { data: ['P5', 'P25', 'P50 (Median)', 'P75', 'P95'], bottom: 0 },
+                                xAxis: { type: 'category', data: Array.from({ length: simulation.n_days }, (_, i) => `Day ${i + 1}`) },
+                                yAxis: { type: 'value' },
+                                series: [
+                                  { name: 'P95', type: 'line', data: simulation.percentile_paths.p95, lineStyle: { opacity: 0.3 }, itemStyle: { color: '#ff4d4f' }, areaStyle: { opacity: 0.05 } },
+                                  { name: 'P75', type: 'line', data: simulation.percentile_paths.p75, lineStyle: { opacity: 0.5 }, itemStyle: { color: '#faad14' }, areaStyle: { opacity: 0.1 } },
+                                  { name: 'P50 (Median)', type: 'line', data: simulation.percentile_paths.p50, lineStyle: { width: 3 }, itemStyle: { color: '#1890ff' } },
+                                  { name: 'P25', type: 'line', data: simulation.percentile_paths.p25, lineStyle: { opacity: 0.5 }, itemStyle: { color: '#faad14' }, areaStyle: { opacity: 0.1 } },
+                                  { name: 'P5', type: 'line', data: simulation.percentile_paths.p5, lineStyle: { opacity: 0.3 }, itemStyle: { color: '#ff4d4f' }, areaStyle: { opacity: 0.05 } },
+                                ],
+                                grid: { left: 60, right: 20, top: 10, bottom: 50 },
+                              }}
+                              style={{ height: 350 }}
+                            />
+                          </Card>
+                          <Row gutter={[12, 12]}>
+                            <Col span={6}>
+                              <Card size="small" bodyStyle={{ padding: 12 }}>
+                                <Statistic title="Mean Final" value={simulation.final_stats.mean} />
+                              </Card>
+                            </Col>
+                            <Col span={6}>
+                              <Card size="small" bodyStyle={{ padding: 12 }}>
+                                <Statistic title="Median Final" value={simulation.final_stats.median} />
+                              </Card>
+                            </Col>
+                            <Col span={6}>
+                              <Card size="small" bodyStyle={{ padding: 12 }}>
+                                <Statistic title={`CI ${(simulation.confidence_interval.level * 100)}% Low`} value={simulation.confidence_interval.low} valueStyle={{ color: '#ff4d4f' }} />
+                              </Card>
+                            </Col>
+                            <Col span={6}>
+                              <Card size="small" bodyStyle={{ padding: 12 }}>
+                                <Statistic title={`CI ${(simulation.confidence_interval.level * 100)}% High`} value={simulation.confidence_interval.high} valueStyle={{ color: '#52c41a' }} />
+                              </Card>
+                            </Col>
+                          </Row>
+                        </>
+                      )}
+                    </>
                   )}
                 </div>
               ),
@@ -686,6 +1004,21 @@ const MLPage: React.FC = () => {
           ]} />
         </Col>
       </Row>
+
+      <Modal
+        title="Rename Model"
+        open={renameModalOpen}
+        onOk={handleRename}
+        onCancel={() => setRenameModalOpen(false)}
+        okText="Rename"
+      >
+        <Input
+          placeholder="Model name"
+          value={renameValue}
+          onChange={e => setRenameValue(e.target.value)}
+          onPressEnter={handleRename}
+        />
+      </Modal>
     </div>
   )
 }

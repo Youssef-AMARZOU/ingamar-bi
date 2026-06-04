@@ -1,5 +1,10 @@
 FROM python:3.11-slim
 
+LABEL org.opencontainers.image.source="https://github.com/Youssef-AMARZOU/ingamar-bi"
+LABEL org.opencontainers.image.description="INGAMAR BI - Enterprise Business Intelligence Platform with AI/ML"
+LABEL org.opencontainers.image.title="INGAMAR BI"
+LABEL org.opencontainers.image.licenses="GPL-2.0"
+
 WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1
