@@ -3,67 +3,100 @@
 html { overflow-y: scroll; }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-size: 13px;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
 }
 
 #root { min-height: 100vh; }
 
-/* ========== THEME CSS VARIABLES ========== */
+/* ========== GRAFANA DESIGN SYSTEM TOKENS ========== */
 [data-theme="light"] {
-  --bg-primary: #f4f5f7;
-  --bg-secondary: #ffffff;
-  --bg-tertiary: #fafbfc;
+  --bg-page: #f4f5f5;
+  --bg-canvas: #f4f5f5;
+  --bg-surface: #ffffff;
+  --bg-secondary: #f4f5f5;
   --bg-elevated: #ffffff;
-  --bg-container: #ffffff;
-  --bg-sidebar: #1a1a2e;
+  --bg-sidebar: #181b1f;
   --bg-header: #ffffff;
-  --text-primary: #1f2937;
+  --bg-input: #ffffff;
+  --bg-hover: #f0f1f2;
+  --bg-active: #e6e9ec;
+  --text-primary: #24292e;
   --text-secondary: #6b7280;
   --text-muted: #9ca3af;
-  --border-color: #e5e7eb;
-  --border-light: #f0f0f0;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
-  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
-  --accent: #1890ff;
-  --accent-hover: #40a9ff;
-  --success: #52c41a;
-  --warning: #faad14;
-  --danger: #ff4d4f;
-  --table-header-bg: #fafbfc;
-  --table-row-hover: #f9fafb;
+  --text-disabled: #c4c8cc;
+  --text-link: #5794F2;
+  --border-default: #e5e7eb;
+  --border-medium: #d1d5db;
+  --border-strong: #b4b9c0;
+  --border-subtle: #f0f1f2;
+  --grafana-orange: #F55F3E;
+  --grafana-blue: #5794F2;
+  --grafana-green: #73BF69;
+  --grafana-red: #F2495C;
+  --grafana-yellow: #FF9830;
+  --grafana-purple: #B877D9;
+  --grafana-cyan: #8AB8FF;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+  --table-header-bg: #f4f5f5;
+  --table-row-hover: #f0f1f2;
+  --table-row-selected: #e6f2ff;
   --scrollbar-thumb: rgba(0,0,0,0.15);
   --scrollbar-hover: rgba(0,0,0,0.25);
+  --panel-bg: #ffffff;
+  --panel-border: #e5e7eb;
+  --menu-item-active-bg: #e6f2ff;
+  --menu-item-active-text: #5794F2;
 }
 
 [data-theme="dark"] {
-  --bg-primary: #111217;
-  --bg-secondary: #1b1d23;
-  --bg-tertiary: #22242b;
-  --bg-elevated: #262830;
-  --bg-container: #1e2028;
-  --bg-sidebar: #0d0e12;
-  --bg-header: #1b1d23;
-  --text-primary: #e2e4e8;
-  --text-secondary: #9ca3af;
+  --bg-page: #111217;
+  --bg-canvas: #111217;
+  --bg-surface: #1e2028;
+  --bg-secondary: #181b1f;
+  --bg-elevated: #22242b;
+  --bg-sidebar: #181b1f;
+  --bg-header: #1e2028;
+  --bg-input: #1e2028;
+  --bg-hover: #22242b;
+  --bg-active: #2a2c34;
+  --text-primary: #ccd0d6;
+  --text-secondary: #8e9399;
   --text-muted: #6b7280;
-  --border-color: #363840;
-  --border-light: #2a2c34;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
-  --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
-  --accent: #3b82f6;
-  --accent-hover: #60a5fa;
-  --success: #22c55e;
-  --warning: #eab308;
-  --danger: #ef4444;
-  --table-header-bg: #22242b;
-  --table-row-hover: #262830;
-  --scrollbar-thumb: rgba(255,255,255,0.15);
-  --scrollbar-hover: rgba(255,255,255,0.25);
+  --text-disabled: #4a4e54;
+  --text-link: #5794F2;
+  --border-default: #2e3138;
+  --border-medium: #3a3e46;
+  --border-strong: #4a4e54;
+  --border-subtle: #22242b;
+  --grafana-orange: #F55F3E;
+  --grafana-blue: #5794F2;
+  --grafana-green: #73BF69;
+  --grafana-red: #F2495C;
+  --grafana-yellow: #FF9830;
+  --grafana-purple: #B877D9;
+  --grafana-cyan: #8AB8FF;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-md: 0 4px 8px rgba(0,0,0,0.3);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.4);
+  --table-header-bg: #1e2028;
+  --table-row-hover: #22242b;
+  --table-row-selected: #1a2332;
+  --scrollbar-thumb: rgba(255,255,255,0.1);
+  --scrollbar-hover: rgba(255,255,255,0.18);
+  --panel-bg: #1e2028;
+  --panel-border: #2e3138;
+  --menu-item-active-bg: rgba(87, 148, 242, 0.12);
+  --menu-item-active-text: #5794F2;
 }
 
-/* Loading guard - hide page until React is ready */
+/* Loading guard */
 html[data-loading] #root { visibility: hidden; opacity: 0; }
 
 /* ========== SCROLLBARS ========== */
@@ -74,12 +107,12 @@ html[data-loading] #root { visibility: hidden; opacity: 0; }
 
 /* ========== BODY ========== */
 body {
-  background: var(--bg-primary);
+  background: var(--bg-page);
   color: var(--text-primary);
   transition: background 0.15s ease, color 0.15s ease;
 }
 
-/* ========== LAYOUT ========== */
+/* ========== ANT DESIGN BASE OVERRIDES ========== */
 .ant-layout, .ant-layout-sider, .ant-layout-header, .ant-layout-content {
   transition: background 0.15s ease, border-color 0.15s ease !important;
 }
@@ -101,161 +134,282 @@ body {
   background: transparent !important;
 }
 .ant-menu-dark .ant-menu-item-selected {
-  background: rgba(59,130,246,0.15) !important;
-  color: #60a5fa !important;
+  background: var(--menu-item-active-bg) !important;
+  color: var(--grafana-blue) !important;
+  border-left: 3px solid var(--grafana-blue) !important;
 }
 .ant-menu-dark .ant-menu-item:hover {
-  background: rgba(255,255,255,0.06) !important;
+  background: rgba(255,255,255,0.04) !important;
+}
+.ant-menu-dark .ant-menu-item {
+  border-left: 3px solid transparent !important;
 }
 
-/* ========== CARDS ========== */
+/* ========== CARDS (Grafana Panel Style) ========== */
 .ant-card {
-  border-radius: 6px !important;
-  border: 1px solid var(--border-color) !important;
-  background: var(--bg-secondary) !important;
-  box-shadow: var(--shadow-sm) !important;
-  transition: box-shadow 0.2s ease, background 0.15s ease, border-color 0.15s ease !important;
+  border-radius: 2px !important;
+  border: 1px solid var(--panel-border) !important;
+  background: var(--panel-bg) !important;
+  box-shadow: none !important;
+  transition: border-color 0.15s ease, background 0.15s ease !important;
 }
 .ant-card:hover {
-  box-shadow: var(--shadow-md) !important;
+  border-color: var(--border-medium) !important;
+}
+.ant-card-head {
+  border-bottom: 1px solid var(--panel-border) !important;
+  min-height: 40px !important;
+  padding: 0 16px !important;
+  background: transparent !important;
+}
+.ant-card-head-title {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: var(--text-primary) !important;
+  padding: 10px 0 !important;
+}
+.ant-card-body {
+  padding: 16px !important;
+  color: var(--text-primary) !important;
 }
 .ant-card-small > .ant-card-head {
   min-height: 36px !important;
   padding: 0 12px !important;
-  font-size: 13px !important;
-  border-bottom: 1px solid var(--border-light) !important;
+  font-size: 12px !important;
+  border-bottom: 1px solid var(--panel-border) !important;
   color: var(--text-primary) !important;
 }
 
-/* ========== BUTTONS ========== */
+/* ========== BUTTONS (Grafana Style) ========== */
 .ant-btn {
-  border-radius: 6px !important;
+  border-radius: 2px !important;
   font-size: 13px !important;
+  font-weight: 500 !important;
   transition: all 0.15s ease !important;
+  height: 32px !important;
+  padding: 0 16px !important;
 }
 .ant-btn-primary {
+  background: var(--grafana-blue) !important;
+  border-color: var(--grafana-blue) !important;
   box-shadow: none !important;
-  background: var(--accent) !important;
-  border-color: var(--accent) !important;
 }
 .ant-btn-primary:hover {
-  background: var(--accent-hover) !important;
-  border-color: var(--accent-hover) !important;
+  background: #4a86e8 !important;
+  border-color: #4a86e8 !important;
+}
+.ant-btn-default {
+  background: var(--bg-surface) !important;
+  border-color: var(--border-default) !important;
+  color: var(--text-primary) !important;
+}
+.ant-btn-default:hover {
+  border-color: var(--grafana-blue) !important;
+  color: var(--grafana-blue) !important;
+}
+.ant-btn-dangerous {
+  background: var(--grafana-red) !important;
+  border-color: var(--grafana-red) !important;
 }
 
-/* ========== HEADER ========== */
+/* ========== HEADER (Grafana Style) ========== */
 .ant-layout-header {
   background: var(--bg-header) !important;
-  border-bottom: 1px solid var(--border-color) !important;
-  height: 56px !important;
-  line-height: 56px !important;
+  border-bottom: 1px solid var(--panel-border) !important;
+  height: 52px !important;
+  line-height: 52px !important;
   padding: 0 24px !important;
 }
 
 /* ========== CONTENT ========== */
 .ant-layout-content {
-  background: var(--bg-primary) !important;
+  background: var(--bg-page) !important;
 }
 
-/* ========== TABLES ========== */
+/* ========== TABLES (Grafana Compact Style) ========== */
 .ant-table-wrapper .ant-table-thead > tr > th {
   background: var(--table-header-bg) !important;
-  border-bottom: 1px solid var(--border-color) !important;
+  border-bottom: 1px solid var(--panel-border) !important;
   font-weight: 600 !important;
   font-size: 11px !important;
   text-transform: uppercase !important;
   letter-spacing: 0.5px !important;
   color: var(--text-secondary) !important;
-  padding: 8px 16px !important;
+  padding: 8px 12px !important;
 }
 .ant-table-wrapper .ant-table-tbody > tr > td {
-  padding: 10px 16px !important;
-  border-bottom: 1px solid var(--border-light) !important;
+  padding: 8px 12px !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
   color: var(--text-primary) !important;
+  font-size: 13px !important;
 }
 .ant-table-wrapper .ant-table-tbody > tr:hover > td {
   background: var(--table-row-hover) !important;
 }
+.ant-table-wrapper .ant-table-tbody > tr.ant-table-row-selected > td {
+  background: var(--table-row-selected) !important;
+}
 
-/* ========== TAGS ========== */
+/* ========== TAGS (Grafana Badge Style) ========== */
 .ant-tag {
-  border-radius: 4px !important;
+  border-radius: 2px !important;
   font-size: 11px !important;
   line-height: 20px !important;
   padding: 0 6px !important;
+  font-weight: 500 !important;
 }
 
-/* ========== SELECTS, INPUTS ========== */
+/* ========== SELECTS, INPUTS (Grafana Style) ========== */
 .ant-select, .ant-input, .ant-input-affix-wrapper {
-  border-radius: 6px !important;
+  border-radius: 2px !important;
 }
 .ant-select-selector {
-  background: var(--bg-container) !important;
-  border-color: var(--border-color) !important;
+  background: var(--bg-input) !important;
+  border-color: var(--border-default) !important;
+  border-radius: 2px !important;
 }
 .ant-input {
-  background: var(--bg-container) !important;
-  border-color: var(--border-color) !important;
+  background: var(--bg-input) !important;
+  border-color: var(--border-default) !important;
   color: var(--text-primary) !important;
+  font-size: 13px !important;
+}
+.ant-input:focus, .ant-input-focused {
+  border-color: var(--grafana-blue) !important;
+  box-shadow: 0 0 0 2px rgba(87, 148, 242, 0.15) !important;
 }
 
-/* ========== MODAL ========== */
+/* ========== MODAL (Grafana Style) ========== */
 .ant-modal-content {
-  border-radius: 10px !important;
-  background: var(--bg-secondary) !important;
+  border-radius: 2px !important;
+  background: var(--bg-surface) !important;
+  box-shadow: var(--shadow-lg) !important;
 }
 .ant-modal-header {
-  border-radius: 10px 10px 0 0 !important;
-  background: var(--bg-secondary) !important;
-  border-bottom: 1px solid var(--border-color) !important;
+  border-radius: 2px 2px 0 0 !important;
+  background: var(--bg-surface) !important;
+  border-bottom: 1px solid var(--panel-border) !important;
+  padding: 16px 24px !important;
 }
 .ant-modal-title {
   color: var(--text-primary) !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
 }
-
-/* ========== TOOLTIP ========== */
-.ant-tooltip-inner {
-  border-radius: 6px !important;
-  font-size: 12px !important;
-}
-
-/* ========== TABS ========== */
-.ant-tabs-tab {
-  font-size: 13px !important;
-  padding: 8px 16px !important;
+.ant-modal-close {
   color: var(--text-secondary) !important;
 }
-.ant-tabs-tab-active {
-  color: var(--accent) !important;
+.ant-modal-close:hover {
+  color: var(--text-primary) !important;
 }
 
-/* ========== ALERT ========== */
-.ant-alert { border-radius: 8px !important; }
+/* ========== TOOLTIP (Grafana Style) ========== */
+.ant-tooltip-inner {
+  border-radius: 2px !important;
+  font-size: 12px !important;
+  background: var(--bg-elevated) !important;
+  color: var(--text-primary) !important;
+  box-shadow: var(--shadow-md) !important;
+}
 
-/* ========== SEGMENTED ========== */
-.ant-segmented { border-radius: 8px !important; }
+/* ========== TABS (Grafana Underline Style) ========== */
+.ant-tabs-tab {
+  font-size: 13px !important;
+  padding: 8px 0 !important;
+  color: var(--text-secondary) !important;
+  font-weight: 500 !important;
+  margin: 0 16px 0 0 !important;
+}
+.ant-tabs-tab:hover {
+  color: var(--text-primary) !important;
+}
+.ant-tabs-tab-active {
+  color: var(--grafana-blue) !important;
+}
+.ant-tabs-ink-bar {
+  background: var(--grafana-blue) !important;
+  height: 2px !important;
+}
+.ant-tabs-nav::before {
+  border-bottom: 1px solid var(--panel-border) !important;
+}
 
-/* ========== DRAWER ========== */
-.ant-drawer-content-wrapper {
-  border-radius: 10px 0 0 10px !important;
+/* ========== ALERT (Grafana Style) ========== */
+.ant-alert {
+  border-radius: 2px !important;
+  border-width: 1px !important;
+}
+.ant-alert-info {
+  background: rgba(87, 148, 242, 0.08) !important;
+  border-color: var(--grafana-blue) !important;
+}
+.ant-alert-success {
+  background: rgba(115, 191, 105, 0.08) !important;
+  border-color: var(--grafana-green) !important;
+}
+.ant-alert-warning {
+  background: rgba(255, 152, 48, 0.08) !important;
+  border-color: var(--grafana-yellow) !important;
+}
+.ant-alert-error {
+  background: rgba(242, 73, 92, 0.08) !important;
+  border-color: var(--grafana-red) !important;
+}
+
+/* ========== SEGMENTED (Grafana Style) ========== */
+.ant-segmented {
+  border-radius: 2px !important;
   background: var(--bg-secondary) !important;
+  border: 1px solid var(--border-default) !important;
+}
+.ant-segmented-item-selected {
+  background: var(--grafana-blue) !important;
+  color: #fff !important;
+}
+
+/* ========== DRAWER (Grafana Style) ========== */
+.ant-drawer-content-wrapper {
+  border-radius: 2px 0 0 2px !important;
+  background: var(--bg-surface) !important;
 }
 .ant-drawer-header {
-  border-radius: 10px 0 0 0 !important;
-  background: var(--bg-secondary) !important;
-  border-bottom: 1px solid var(--border-color) !important;
+  border-radius: 2px 0 0 0 !important;
+  background: var(--bg-surface) !important;
+  border-bottom: 1px solid var(--panel-border) !important;
+  padding: 16px 24px !important;
 }
-.ant-drawer-title { color: var(--text-primary) !important; }
+.ant-drawer-title {
+  color: var(--text-primary) !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+}
+.ant-drawer-body {
+  padding: 16px 24px !important;
+}
 
 /* ========== EMPTY STATE ========== */
-.ant-empty-description { color: var(--text-muted) !important; }
+.ant-empty-description {
+  color: var(--text-muted) !important;
+}
 
-/* ========== STATISTIC ========== */
-.ant-statistic-title { color: var(--text-secondary) !important; font-size: 11px !important; }
-.ant-statistic-content { color: var(--text-primary) !important; }
+/* ========== STATISTIC (Grafana KPI Style) ========== */
+.ant-statistic-title {
+  color: var(--text-secondary) !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  font-weight: 600 !important;
+}
+.ant-statistic-content {
+  color: var(--text-primary) !important;
+  font-size: 24px !important;
+  font-weight: 500 !important;
+}
 
 /* ========== SPIN ========== */
-.ant-spin-dot-item { background-color: var(--accent) !important; }
+.ant-spin-dot-item {
+  background-color: var(--grafana-blue) !important;
+}
 
 /* ========== MENU ========== */
 .ant-menu-item, .ant-menu-submenu-title {
@@ -263,28 +417,179 @@ body {
   transition: all 0.15s ease !important;
 }
 .ant-menu-item-selected {
-  color: var(--accent) !important;
+  color: var(--grafana-blue) !important;
 }
 
 /* ========== POPOVER ========== */
 .ant-popover-inner {
   background: var(--bg-elevated) !important;
-  border-radius: 8px !important;
+  border-radius: 2px !important;
+  border: 1px solid var(--panel-border) !important;
 }
 
-/* ========== DROPDOWN ========== */
+/* ========== DROPDOWN (Grafana Style) ========== */
 .ant-dropdown-menu {
   background: var(--bg-elevated) !important;
-  border-radius: 8px !important;
+  border-radius: 2px !important;
+  border: 1px solid var(--panel-border) !important;
+  box-shadow: var(--shadow-md) !important;
+  padding: 4px 0 !important;
 }
 .ant-dropdown-menu-item {
   color: var(--text-primary) !important;
+  font-size: 13px !important;
+  padding: 8px 12px !important;
+  border-radius: 0 !important;
+}
+.ant-dropdown-menu-item:hover {
+  background: var(--bg-hover) !important;
 }
 
-/* ========== CALLOUT (DIVIDER) ========== */
+/* ========== DIVIDER ========== */
 .ant-divider {
-  border-color: var(--border-color) !important;
+  border-color: var(--panel-border) !important;
 }
 
-/* ========== STATIC CENTERING ========== */
+/* ========== FORM ========== */
+.ant-form-item-label > label {
+  color: var(--text-secondary) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+
+/* ========== PAGINATION ========== */
+.ant-pagination-item {
+  background: var(--bg-surface) !important;
+  border-color: var(--border-default) !important;
+  border-radius: 2px !important;
+}
+.ant-pagination-item a {
+  color: var(--text-primary) !important;
+}
+.ant-pagination-item-active {
+  background: var(--grafana-blue) !important;
+  border-color: var(--grafana-blue) !important;
+}
+.ant-pagination-item-active a {
+  color: #fff !important;
+}
+
+/* ========== SWITCH ========== */
+.ant-switch {
+  border-radius: 12px !important;
+}
+.ant-switch-checked {
+  background: var(--grafana-blue) !important;
+}
+
+/* ========== BREADCRUMB ========== */
+.ant-breadcrumb-link, .ant-breadcrumb-separator {
+  color: var(--text-secondary) !important;
+  font-size: 13px !important;
+}
+
+/* ========== STATIC HELPERS ========== */
 .text-muted { color: var(--text-muted); }
+.text-secondary { color: var(--text-secondary); }
+.text-primary { color: var(--text-primary); }
+
+/* ========== GRAFANA-SPECIFIC CLASSES ========== */
+.grafana-panel {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 2px;
+  padding: 16px;
+}
+.grafana-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--panel-border);
+  margin-bottom: 12px;
+}
+.grafana-panel-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.grafana-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.grafana-badge-green { background: rgba(115,191,105,0.15); color: var(--grafana-green); }
+.grafana-badge-red { background: rgba(242,73,92,0.15); color: var(--grafana-red); }
+.grafana-badge-blue { background: rgba(87,148,242,0.15); color: var(--grafana-blue); }
+.grafana-badge-yellow { background: rgba(255,152,48,0.15); color: var(--grafana-yellow); }
+.grafana-badge-purple { background: rgba(184,119,217,0.15); color: var(--grafana-purple); }
+
+/* ========== GRAFANA KPI CARD ========== */
+.grafana-kpi {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 2px;
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+}
+.grafana-kpi::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--grafana-blue);
+}
+.grafana-kpi-value {
+  font-size: 28px;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+.grafana-kpi-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+/* ========== GRAFANA NAV ITEM ========== */
+.grafana-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  transition: all 0.15s ease;
+  font-size: 13px;
+  font-weight: 500;
+}
+.grafana-nav-item:hover {
+  background: rgba(255,255,255,0.04);
+  color: var(--text-primary);
+}
+.grafana-nav-item.active {
+  background: var(--menu-item-active-bg);
+  color: var(--grafana-blue);
+  border-left-color: var(--grafana-blue);
+}
+
+/* ========== ANIMATION ========== */
+@keyframes grafana-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.grafana-animate-in {
+  animation: grafana-fade-in 0.2s ease-out;
+}

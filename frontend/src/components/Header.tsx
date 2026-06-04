@@ -2,7 +2,6 @@ import React from 'react'
 import { Layout, Avatar, Dropdown, Space, Typography } from 'antd'
 import {
   UserOutlined, LogoutOutlined, SettingOutlined,
-  BellOutlined, SearchOutlined
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/auth'
@@ -34,41 +33,66 @@ const Header: React.FC = () => {
     },
   ]
 
+  const pageTitle = window.location.pathname === '/' ? 'Home' :
+    window.location.pathname.split('/')[1]?.charAt(0).toUpperCase() +
+    window.location.pathname.split('/')[1]?.slice(1) || 'Home'
+
   return (
     <AntHeader style={{
-      background: darkMode ? '#1f1f1f' : '#fff',
+      background: darkMode ? '#1e2028' : '#ffffff',
       padding: '0 24px',
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
-      boxShadow: darkMode ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.06)',
-      height: 56,
-      lineHeight: '56px',
+      borderBottom: `1px solid ${darkMode ? '#2e3138' : '#e5e7eb'}`,
+      height: 52,
+      lineHeight: '52px',
       zIndex: 10,
     }}>
-      <Space>
+      {/* Breadcrumb */}
+      <Space size={8}>
         <Typography.Text style={{
-          color: darkMode ? '#9ca3af' : '#6b7280',
+          color: darkMode ? '#8e9399' : '#6b7280',
           fontSize: 13,
           fontWeight: 500,
-          letterSpacing: 0.3,
-          textTransform: 'uppercase',
         }}>
-          {window.location.pathname === '/' ? 'Home' :
-            window.location.pathname.split('/')[1]?.charAt(0).toUpperCase() +
-            window.location.pathname.split('/')[1]?.slice(1) || 'Home'}
+          Home
+        </Typography.Text>
+        <Typography.Text style={{
+          color: darkMode ? '#4a4e54' : '#c4c8cc',
+          fontSize: 13,
+        }}>
+          /
+        </Typography.Text>
+        <Typography.Text style={{
+          color: darkMode ? '#ccd0d6' : '#24292e',
+          fontSize: 13,
+          fontWeight: 500,
+        }}>
+          {pageTitle}
         </Typography.Text>
       </Space>
 
-      <Space size={20}>
+      {/* User Menu */}
+      <Space size={16}>
         <Dropdown menu={{ items: menuItems }} placement="bottomRight">
-          <Space style={{ cursor: 'pointer', padding: '4px 8px', borderRadius: 6, background: darkMode ? '#2d2d2d' : '#f5f7fa' }}>
+          <Space style={{
+            cursor: 'pointer',
+            padding: '4px 10px',
+            borderRadius: 2,
+            background: darkMode ? '#22242b' : '#f4f5f5',
+            border: `1px solid ${darkMode ? '#2e3138' : '#e5e7eb'}`,
+          }}>
             <Avatar
-              size={28}
+              size={24}
               icon={<UserOutlined />}
-              style={{ background: '#667eea' }}
+              style={{ background: '#5794F2' }}
             />
-            <span style={{ color: darkMode ? '#e5e7eb' : '#374151', fontSize: 14, fontWeight: 500 }}>
+            <span style={{
+              color: darkMode ? '#ccd0d6' : '#24292e',
+              fontSize: 13,
+              fontWeight: 500,
+            }}>
               {user?.username || 'User'}
             </span>
           </Space>

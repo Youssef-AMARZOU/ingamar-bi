@@ -10,6 +10,7 @@ import {
   FileTextOutlined,
   ExperimentOutlined,
   NodeIndexOutlined,
+  HomeOutlined,
 } from '@ant-design/icons'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useThemeStore } from '../store/theme'
@@ -39,37 +40,45 @@ const Sidebar: React.FC = () => {
     <Sider
       width={240}
       style={{
-        background: darkMode ? '#1a1a2e' : '#1a1a2e',
+        background: '#181b1f',
         overflow: 'auto',
         height: '100vh',
         position: 'sticky',
         top: 0,
         left: 0,
+        borderRight: '1px solid #2e3138',
       }}
     >
+      {/* Logo */}
       <div style={{
-        padding: '20px 20px 16px',
-        borderBottom: '1px solid rgba(255,255,255,0.08)',
-        marginBottom: 8,
+        padding: '16px 20px',
+        borderBottom: '1px solid #2e3138',
+        marginBottom: 4,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
-            width: 32,
-            height: 32,
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            borderRadius: 8,
+            width: 28,
+            height: 28,
+            background: 'linear-gradient(135deg, #F55F3E 0%, #FF9830 100%)',
+            borderRadius: 4,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             color: '#fff',
             fontWeight: 700,
-            fontSize: 14,
+            fontSize: 13,
             flexShrink: 0,
           }}>I</div>
-          <span style={{ color: '#fff', fontSize: 16, fontWeight: 600, letterSpacing: 0.5 }}>INGAMAR</span>
+          <span style={{
+            color: '#ccd0d6',
+            fontSize: 15,
+            fontWeight: 600,
+            letterSpacing: -0.3,
+          }}>INGAMAR</span>
         </div>
       </div>
 
+      {/* Navigation */}
       <Menu
         theme="dark"
         mode="inline"
@@ -80,7 +89,8 @@ const Sidebar: React.FC = () => {
         style={{
           background: 'transparent',
           borderRight: 0,
-          fontSize: 14,
+          fontSize: 13,
+          fontWeight: 500,
         }}
       />
     </Sider>
