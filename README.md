@@ -18,7 +18,7 @@ app_port: 7860
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-**A modern, enterprise-ready business intelligence platform with AI-powered analytics, machine learning, and Grafana-inspired design.**
+**A modern, enterprise-ready business intelligence platform with AI-powered analytics, machine learning, and professional design.**
 
 ![INGAMAR BI](./assets/logo.png)
 
@@ -30,9 +30,9 @@ app_port: 7860
 
 ## 📖 Introduction
 
-INGAMAR BI is a comprehensive business intelligence platform that combines traditional data visualization with modern AI and machine learning capabilities. Built with a Grafana-inspired design system, it provides an intuitive interface for exploring data, creating dashboards, and building predictive models.
+INGAMAR BI is a comprehensive business intelligence platform that combines traditional data visualization with modern AI and machine learning capabilities. Built with a professional design system, it provides an intuitive interface for exploring data, creating dashboards, and building predictive models.
 
-Inspired by enterprise tools like Apache Superset, Grafana, and modern MLOps platforms, INGAMAR BI brings together the best of business intelligence and data science in a single, cohesive platform.
+INGAMAR BI brings together the best of business intelligence and data science in a single, cohesive platform.
 
 ## ✨ Key Features
 
@@ -61,7 +61,7 @@ Inspired by enterprise tools like Apache Superset, Grafana, and modern MLOps pla
 - **Dashboard Sharing**: Collaborate with team members
 
 ### Design & UX
-- **Grafana-Inspired Design**: Professional dark/light themes
+- **Professional Design**: Dark/light themes with modern UI
 - **Responsive Layout**: Works on desktop, tablet, and mobile
 - **Real-time Updates**: Live data refresh and notifications
 - **Accessibility**: WCAG 2.1 compliant interface
@@ -80,13 +80,13 @@ Inspired by enterprise tools like Apache Superset, Grafana, and modern MLOps pla
 - **UI Library**: Ant Design 5
 - **Charts**: Apache ECharts 5
 - **State Management**: Zustand
-- **Styling**: CSS custom properties (Grafana design tokens)
+- **Styling**: CSS custom properties (INGAMAR design tokens)
 
 ### Infrastructure
 - **Containerization**: Docker & Docker Compose
 - **CI/CD**: GitHub Actions
 - **Deployment**: Hugging Face Spaces, AWS, GCP
-- **Monitoring**: Prometheus & Grafana (optional)
+- **Monitoring**: Prometheus integration (optional)
 
 ## 🚀 Quick Start
 
@@ -176,7 +176,7 @@ ingamar-bi/
 │   │   ├── pages/             # Page components
 │   │   ├── store/             # State management (Zustand)
 │   │   ├── services/          # API services
-│   │   └── index.css          # Grafana-inspired styles
+│   │   └── index.css          # INGAMAR design system styles
 │   ├── package.json           # Node dependencies
 │   └── vite.config.ts         # Vite configuration
 │
@@ -271,7 +271,6 @@ This project is licensed under the GNU General Public License v2.0 - see the [LI
 
 ## 🙏 Acknowledgments
 
-- **Grafana** - Design inspiration and color palette
 - **Apache Superset** - Architecture and feature inspiration
 - **Ant Design** - UI component library
 - **Apache ECharts** - Visualization library
@@ -293,5 +292,3 @@ This project is licensed under the GNU General Public License v2.0 - see the [LI
 ---
 
 **Built with ❤️ by [AMARZOU](https://github.com/Youssef-AMARZOU)**
-
-**Inspired by the best of open source: Grafana, Apache Superset, and the data science community.**

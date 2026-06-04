@@ -29,12 +29,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Frontend**
-  - Grafana-inspired design system with Inter font
+  - Professional design system with Inter font
   - Dark/light theme with CSS custom properties
   - Left-border navigation indicators
   - Panel-style cards with 2px border-radius
   - Breadcrumb navigation in header
-  - Grafana color palette (orange, blue, green, red, yellow, purple)
+  - INGAMAR color palette (orange, blue, green, red, yellow, purple)
   - KPI cards with top-border accent bars
   - Color-coded badges and alerts
   - Inline chart creation in DashboardBuilder

@@ -245,7 +245,7 @@ const Chart: React.FC<ChartProps> = ({ data, title, type, onPointClick }) => {
 - Use CSS custom properties (variables)
 - Follow BEM naming convention for custom classes
 - Keep specificity low
-- Use Grafana design tokens
+- Use INGAMAR design tokens
 
 ### SQL
 

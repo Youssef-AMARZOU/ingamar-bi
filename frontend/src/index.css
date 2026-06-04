@@ -13,7 +13,7 @@ body {
 
 #root { min-height: 100vh; }
 
-/* ========== GRAFANA DESIGN SYSTEM TOKENS ========== */
+/* ========== INGAMAR DESIGN SYSTEM TOKENS ========== */
 [data-theme="light"] {
   --bg-page: #f4f5f5;
   --bg-canvas: #f4f5f5;
@@ -34,13 +34,13 @@ body {
   --border-medium: #d1d5db;
   --border-strong: #b4b9c0;
   --border-subtle: #f0f1f2;
-  --grafana-orange: #F55F3E;
-  --grafana-blue: #5794F2;
-  --grafana-green: #73BF69;
-  --grafana-red: #F2495C;
-  --grafana-yellow: #FF9830;
-  --grafana-purple: #B877D9;
-  --grafana-cyan: #8AB8FF;
+  --ingamar-orange: #F55F3E;
+  --ingamar-blue: #5794F2;
+  --ingamar-green: #73BF69;
+  --ingamar-red: #F2495C;
+  --ingamar-yellow: #FF9830;
+  --ingamar-purple: #B877D9;
+  --ingamar-cyan: #8AB8FF;
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
   --shadow-md: 0 4px 8px rgba(0,0,0,0.08);
   --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
@@ -75,13 +75,13 @@ body {
   --border-medium: #3a3e46;
   --border-strong: #4a4e54;
   --border-subtle: #22242b;
-  --grafana-orange: #F55F3E;
-  --grafana-blue: #5794F2;
-  --grafana-green: #73BF69;
-  --grafana-red: #F2495C;
-  --grafana-yellow: #FF9830;
-  --grafana-purple: #B877D9;
-  --grafana-cyan: #8AB8FF;
+  --ingamar-orange: #F55F3E;
+  --ingamar-blue: #5794F2;
+  --ingamar-green: #73BF69;
+  --ingamar-red: #F2495C;
+  --ingamar-yellow: #FF9830;
+  --ingamar-purple: #B877D9;
+  --ingamar-cyan: #8AB8FF;
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
   --shadow-md: 0 4px 8px rgba(0,0,0,0.3);
   --shadow-lg: 0 8px 24px rgba(0,0,0,0.4);
@@ -135,8 +135,8 @@ body {
 }
 .ant-menu-dark .ant-menu-item-selected {
   background: var(--menu-item-active-bg) !important;
-  color: var(--grafana-blue) !important;
-  border-left: 3px solid var(--grafana-blue) !important;
+  color: var(--ingamar-blue) !important;
+  border-left: 3px solid var(--ingamar-blue) !important;
 }
 .ant-menu-dark .ant-menu-item:hover {
   background: rgba(255,255,255,0.04) !important;
@@ -145,7 +145,7 @@ body {
   border-left: 3px solid transparent !important;
 }
 
-/* ========== CARDS (Grafana Panel Style) ========== */
+/* ========== CARDS (INGAMAR Panel Style) ========== */
 .ant-card {
   border-radius: 2px !important;
   border: 1px solid var(--panel-border) !important;
@@ -180,7 +180,7 @@ body {
   color: var(--text-primary) !important;
 }
 
-/* ========== BUTTONS (Grafana Style) ========== */
+/* ========== BUTTONS (INGAMAR Style) ========== */
 .ant-btn {
   border-radius: 2px !important;
   font-size: 13px !important;
@@ -190,8 +190,8 @@ body {
   padding: 0 16px !important;
 }
 .ant-btn-primary {
-  background: var(--grafana-blue) !important;
-  border-color: var(--grafana-blue) !important;
+  background: var(--ingamar-blue) !important;
+  border-color: var(--ingamar-blue) !important;
   box-shadow: none !important;
 }
 .ant-btn-primary:hover {
@@ -204,15 +204,15 @@ body {
   color: var(--text-primary) !important;
 }
 .ant-btn-default:hover {
-  border-color: var(--grafana-blue) !important;
-  color: var(--grafana-blue) !important;
+  border-color: var(--ingamar-blue) !important;
+  color: var(--ingamar-blue) !important;
 }
 .ant-btn-dangerous {
-  background: var(--grafana-red) !important;
-  border-color: var(--grafana-red) !important;
+  background: var(--ingamar-red) !important;
+  border-color: var(--ingamar-red) !important;
 }
 
-/* ========== HEADER (Grafana Style) ========== */
+/* ========== HEADER (INGAMAR Style) ========== */
 .ant-layout-header {
   background: var(--bg-header) !important;
   border-bottom: 1px solid var(--panel-border) !important;
@@ -226,7 +226,7 @@ body {
   background: var(--bg-page) !important;
 }
 
-/* ========== TABLES (Grafana Compact Style) ========== */
+/* ========== TABLES (INGAMAR Compact Style) ========== */
 .ant-table-wrapper .ant-table-thead > tr > th {
   background: var(--table-header-bg) !important;
   border-bottom: 1px solid var(--panel-border) !important;
@@ -250,7 +250,7 @@ body {
   background: var(--table-row-selected) !important;
 }
 
-/* ========== TAGS (Grafana Badge Style) ========== */
+/* ========== TAGS (INGAMAR Badge Style) ========== */
 .ant-tag {
   border-radius: 2px !important;
   font-size: 11px !important;
@@ -259,7 +259,7 @@ body {
   font-weight: 500 !important;
 }
 
-/* ========== SELECTS, INPUTS (Grafana Style) ========== */
+/* ========== SELECTS, INPUTS (INGAMAR Style) ========== */
 .ant-select, .ant-input, .ant-input-affix-wrapper {
   border-radius: 2px !important;
 }
@@ -275,11 +275,11 @@ body {
   font-size: 13px !important;
 }
 .ant-input:focus, .ant-input-focused {
-  border-color: var(--grafana-blue) !important;
+  border-color: var(--ingamar-blue) !important;
   box-shadow: 0 0 0 2px rgba(87, 148, 242, 0.15) !important;
 }
 
-/* ========== MODAL (Grafana Style) ========== */
+/* ========== MODAL (INGAMAR Style) ========== */
 .ant-modal-content {
   border-radius: 2px !important;
   background: var(--bg-surface) !important;
@@ -303,7 +303,7 @@ body {
   color: var(--text-primary) !important;
 }
 
-/* ========== TOOLTIP (Grafana Style) ========== */
+/* ========== TOOLTIP (INGAMAR Style) ========== */
 .ant-tooltip-inner {
   border-radius: 2px !important;
   font-size: 12px !important;
@@ -312,7 +312,7 @@ body {
   box-shadow: var(--shadow-md) !important;
 }
 
-/* ========== TABS (Grafana Underline Style) ========== */
+/* ========== TABS (INGAMAR Underline Style) ========== */
 .ant-tabs-tab {
   font-size: 13px !important;
   padding: 8px 0 !important;
@@ -324,50 +324,50 @@ body {
   color: var(--text-primary) !important;
 }
 .ant-tabs-tab-active {
-  color: var(--grafana-blue) !important;
+  color: var(--ingamar-blue) !important;
 }
 .ant-tabs-ink-bar {
-  background: var(--grafana-blue) !important;
+  background: var(--ingamar-blue) !important;
   height: 2px !important;
 }
 .ant-tabs-nav::before {
   border-bottom: 1px solid var(--panel-border) !important;
 }
 
-/* ========== ALERT (Grafana Style) ========== */
+/* ========== ALERT (INGAMAR Style) ========== */
 .ant-alert {
   border-radius: 2px !important;
   border-width: 1px !important;
 }
 .ant-alert-info {
   background: rgba(87, 148, 242, 0.08) !important;
-  border-color: var(--grafana-blue) !important;
+  border-color: var(--ingamar-blue) !important;
 }
 .ant-alert-success {
   background: rgba(115, 191, 105, 0.08) !important;
-  border-color: var(--grafana-green) !important;
+  border-color: var(--ingamar-green) !important;
 }
 .ant-alert-warning {
   background: rgba(255, 152, 48, 0.08) !important;
-  border-color: var(--grafana-yellow) !important;
+  border-color: var(--ingamar-yellow) !important;
 }
 .ant-alert-error {
   background: rgba(242, 73, 92, 0.08) !important;
-  border-color: var(--grafana-red) !important;
+  border-color: var(--ingamar-red) !important;
 }
 
-/* ========== SEGMENTED (Grafana Style) ========== */
+/* ========== SEGMENTED (INGAMAR Style) ========== */
 .ant-segmented {
   border-radius: 2px !important;
   background: var(--bg-secondary) !important;
   border: 1px solid var(--border-default) !important;
 }
 .ant-segmented-item-selected {
-  background: var(--grafana-blue) !important;
+  background: var(--ingamar-blue) !important;
   color: #fff !important;
 }
 
-/* ========== DRAWER (Grafana Style) ========== */
+/* ========== DRAWER (INGAMAR Style) ========== */
 .ant-drawer-content-wrapper {
   border-radius: 2px 0 0 2px !important;
   background: var(--bg-surface) !important;
@@ -392,7 +392,7 @@ body {
   color: var(--text-muted) !important;
 }
 
-/* ========== STATISTIC (Grafana KPI Style) ========== */
+/* ========== STATISTIC (INGAMAR KPI Style) ========== */
 .ant-statistic-title {
   color: var(--text-secondary) !important;
   font-size: 11px !important;
@@ -408,7 +408,7 @@ body {
 
 /* ========== SPIN ========== */
 .ant-spin-dot-item {
-  background-color: var(--grafana-blue) !important;
+  background-color: var(--ingamar-blue) !important;
 }
 
 /* ========== MENU ========== */
@@ -417,7 +417,7 @@ body {
   transition: all 0.15s ease !important;
 }
 .ant-menu-item-selected {
-  color: var(--grafana-blue) !important;
+  color: var(--ingamar-blue) !important;
 }
 
 /* ========== POPOVER ========== */
@@ -427,7 +427,7 @@ body {
   border: 1px solid var(--panel-border) !important;
 }
 
-/* ========== DROPDOWN (Grafana Style) ========== */
+/* ========== DROPDOWN (INGAMAR Style) ========== */
 .ant-dropdown-menu {
   background: var(--bg-elevated) !important;
   border-radius: 2px !important;
@@ -467,8 +467,8 @@ body {
   color: var(--text-primary) !important;
 }
 .ant-pagination-item-active {
-  background: var(--grafana-blue) !important;
-  border-color: var(--grafana-blue) !important;
+  background: var(--ingamar-blue) !important;
+  border-color: var(--ingamar-blue) !important;
 }
 .ant-pagination-item-active a {
   color: #fff !important;
@@ -479,7 +479,7 @@ body {
   border-radius: 12px !important;
 }
 .ant-switch-checked {
-  background: var(--grafana-blue) !important;
+  background: var(--ingamar-blue) !important;
 }
 
 /* ========== BREADCRUMB ========== */
@@ -494,13 +494,13 @@ body {
 .text-primary { color: var(--text-primary); }
 
 /* ========== GRAFANA-SPECIFIC CLASSES ========== */
-.grafana-panel {
+.ingamar-panel {
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
   border-radius: 2px;
   padding: 16px;
 }
-.grafana-panel-header {
+.ingamar-panel-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -508,12 +508,12 @@ body {
   border-bottom: 1px solid var(--panel-border);
   margin-bottom: 12px;
 }
-.grafana-panel-title {
+.ingamar-panel-title {
   font-size: 14px;
   font-weight: 500;
   color: var(--text-primary);
 }
-.grafana-badge {
+.ingamar-badge {
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
@@ -523,14 +523,14 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
-.grafana-badge-green { background: rgba(115,191,105,0.15); color: var(--grafana-green); }
-.grafana-badge-red { background: rgba(242,73,92,0.15); color: var(--grafana-red); }
-.grafana-badge-blue { background: rgba(87,148,242,0.15); color: var(--grafana-blue); }
-.grafana-badge-yellow { background: rgba(255,152,48,0.15); color: var(--grafana-yellow); }
-.grafana-badge-purple { background: rgba(184,119,217,0.15); color: var(--grafana-purple); }
+.ingamar-badge-green { background: rgba(115,191,105,0.15); color: var(--ingamar-green); }
+.ingamar-badge-red { background: rgba(242,73,92,0.15); color: var(--ingamar-red); }
+.ingamar-badge-blue { background: rgba(87,148,242,0.15); color: var(--ingamar-blue); }
+.ingamar-badge-yellow { background: rgba(255,152,48,0.15); color: var(--ingamar-yellow); }
+.ingamar-badge-purple { background: rgba(184,119,217,0.15); color: var(--ingamar-purple); }
 
 /* ========== GRAFANA KPI CARD ========== */
-.grafana-kpi {
+.ingamar-kpi {
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
   border-radius: 2px;
@@ -538,22 +538,22 @@ body {
   position: relative;
   overflow: hidden;
 }
-.grafana-kpi::before {
+.ingamar-kpi::before {
   content: '';
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   height: 3px;
-  background: var(--grafana-blue);
+  background: var(--ingamar-blue);
 }
-.grafana-kpi-value {
+.ingamar-kpi-value {
   font-size: 28px;
   font-weight: 500;
   color: var(--text-primary);
   line-height: 1.2;
 }
-.grafana-kpi-label {
+.ingamar-kpi-label {
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
@@ -563,7 +563,7 @@ body {
 }
 
 /* ========== GRAFANA NAV ITEM ========== */
-.grafana-nav-item {
+.ingamar-nav-item {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -575,21 +575,21 @@ body {
   font-size: 13px;
   font-weight: 500;
 }
-.grafana-nav-item:hover {
+.ingamar-nav-item:hover {
   background: rgba(255,255,255,0.04);
   color: var(--text-primary);
 }
-.grafana-nav-item.active {
+.ingamar-nav-item.active {
   background: var(--menu-item-active-bg);
-  color: var(--grafana-blue);
-  border-left-color: var(--grafana-blue);
+  color: var(--ingamar-blue);
+  border-left-color: var(--ingamar-blue);
 }
 
 /* ========== ANIMATION ========== */
-@keyframes grafana-fade-in {
+@keyframes ingamar-fade-in {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.grafana-animate-in {
-  animation: grafana-fade-in 0.2s ease-out;
+.ingamar-animate-in {
+  animation: ingamar-fade-in 0.2s ease-out;
 }

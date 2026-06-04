@@ -110,7 +110,7 @@ Login: `admin` / `admin123`
 - **UI Library**: Ant Design 5
 - **Charts**: Apache ECharts
 - **State Management**: Zustand
-- **Styling**: CSS custom properties (Grafana-inspired)
+- **Styling**: CSS custom properties (INGAMAR design system)
 
 ### Infrastructure
 - **Containerization**: Docker
